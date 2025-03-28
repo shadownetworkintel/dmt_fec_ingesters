@@ -83,10 +83,10 @@ while True: # Loop through all pages
                 amount, date, recipient, donor, report, occupation = 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A'
                 contribution_type, contribution_mode, street, city, state, zip_code, employer = 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A'
             
-            print(amount, date, recipient, donor, report, occupation, contribution_type, contribution_mode, street, city, state, zip_code, employer)
+            # print(amount, date, recipient, donor, report, occupation, contribution_type, contribution_mode, street, city, state, zip_code, employer)
             gift_data.append([amount, date, recipient, donor, report, occupation, contribution_type, contribution_mode, street, city, state, zip_code, employer])
 
-            #Insert data into PostgreSQL
+            # Insert data into PostgreSQL
             try:
                 insert_query = """
                     INSERT INTO kref_donations (
@@ -96,7 +96,7 @@ while True: # Loop through all pages
                 """
                 cursor.execute(insert_query, (amount, date, recipient, donor, report, occupation, contribution_type, contribution_mode, street, city, state, zip_code, employer))
                 conn.commit()
-                print("Data inserted successfully")
+                # print("Data inserted successfully")
             except Exception as e:
                 print(f"Error inserting data: {e}")
                 conn.rollback()
@@ -105,7 +105,7 @@ while True: # Loop through all pages
         # Check if the next page button exists and is enabled
         try:
             next_page = driver.find_element(By.CSS_SELECTOR, "li.page-item.active + li.page-item a")
-            # TODO: stop when the next button is the "last page" button
+            # Stop when the next button is the "last page" button
             if next_page.text.strip() == "»":
                 print('End of pages')
                 break
