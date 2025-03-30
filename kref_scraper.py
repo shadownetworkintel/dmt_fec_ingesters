@@ -21,7 +21,7 @@ driver = uc.Chrome(options=chrome_options)
 
 # PostgreSQL Connection details 
 DB_HOST = "localhost"
-DB_NAME = "kref_data"
+DB_NAME = "political_finance_data"
 DB_USER = "postgres"
 DB_PASS = "EMvAYOrD#BYU8y"
 DB_PORT = "5432"
@@ -89,7 +89,7 @@ while True: # Loop through all pages
             # Insert data into PostgreSQL
             try:
                 insert_query = """
-                    INSERT INTO kref_donations (
+                    INSERT INTO kref_donations_raw (
                         amount, date, recipient, donor, report, occupation, 
                         contribution_type, contribution_mode, street, city, state, zip_code, employer
                     ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
