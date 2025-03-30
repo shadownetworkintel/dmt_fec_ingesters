@@ -1,4 +1,4 @@
-\copy ky_candidates(last_name, first_n
+\copy ky_candidates_raw(last_name, first_n
 ame,middle_name, suffix, party, office, district,
 division, running_mate,address1, address2, city, s
 tate, zip_code, date_filed, unexpired, withdrawn,
