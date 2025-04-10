@@ -1,4 +1,4 @@
-CREATE TABLE fec_operating_expenditures (
+CREATE TABLE operating_expenditures (
 	cmte_id           VARCHAR(9),    -- filer identification number
 	amndt_ind         varchar(1),    -- amendment indicator
 	rpt_yr            numeric(4,0),  -- report year
@@ -11,7 +11,7 @@ CREATE TABLE fec_operating_expenditures (
 	city              varchar(30),   -- image number
 	state             varchar(2),    -- image number
 	zip_code          varchar(9),    -- image number
-	transaction_dt    varchar(10),   -- transaction date
+	transaction_dt    date,          -- transaction date
 	transaction_amt   numeric(14,2), -- transaction amount
 	transaction_pgi   varchar(5),    -- primary/general indicator
 	purpose           varchar(100),  -- purpose
@@ -22,7 +22,8 @@ CREATE TABLE fec_operating_expenditures (
 	entity_tp         varchar(3),    -- entity type
 	sub_id            numeric(19,0), -- fec record number
 	file_num          numeric(7,0),  -- file number/report id
-	tran_id           varchar(32),   -- transaction id
+	tran_id           varchar(32) PRIMARY KEY,   -- transaction id
 	back_ref_tran_id  varchar(32),   -- back reference transaction id
-	dummy_column      varchar(5)     -- extra (blank) column in the file. who knows!
+	dummy_column      varchar(5),    -- extra (blank) column in the file. who knows!
+	election_cycle    integer        -- election cycle (year)
 );

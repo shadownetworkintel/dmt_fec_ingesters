@@ -1,4 +1,4 @@
-CREATE TABLE fec_committee_contributions (
+CREATE TABLE committee_contributions (
     id                      SERIAL PRIMARY KEY, -- Unique row identifier
     committee_id            VARCHAR(9) NOT NULL, -- The ID of the contributing committee
     contributor_name        VARCHAR(200), -- Name of the contributing committee
@@ -13,6 +13,7 @@ CREATE TABLE fec_committee_contributions (
     memo_code              CHAR(1), -- Memo code indicator
     memo_text              TEXT, -- Additional memo text (if applicable)
     file_number            INTEGER, -- FEC file number for the contribution
-    FOREIGN KEY (committee_id) REFERENCES fec_committee_master(committee_id) ON DELETE CASCADE,
-    FOREIGN KEY (recipient_committee_id) REFERENCES fec_committee_master(committee_id) ON DELETE CASCADE
+    election_cycle         INTEGER, -- Election cycle for the contribution
+    FOREIGN KEY (committee_id) REFERENCES committee_master(cmte_id) ON DELETE CASCADE,
+    FOREIGN KEY (recipient_committee_id) REFERENCES committee_master(cmte_id) ON DELETE CASCADE
 );
