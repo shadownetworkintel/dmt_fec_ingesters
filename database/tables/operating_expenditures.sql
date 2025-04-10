@@ -27,3 +27,7 @@ CREATE TABLE operating_expenditures (
 	dummy_column      varchar(5),    -- extra (blank) column in the file. who knows!
 	election_cycle    integer        -- election cycle (year)
 );
+CREATE UNIQUE INDEX idx_operating_expenditures_tran_id
+ON operating_expenditures (tran_id);
+CREATE INDEX idx_operating_expenditures_cmte_id
+ON operating_expenditures (cmte_id);

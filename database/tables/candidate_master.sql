@@ -18,3 +18,5 @@ CREATE TABLE candidate_master (
     cand_zip                VARCHAR(10),
     election_cycle          INTEGER
 );
+CREATE UNIQUE INDEX idx_candidate_master_cand_id
+ON candidate_master (cand_id);
