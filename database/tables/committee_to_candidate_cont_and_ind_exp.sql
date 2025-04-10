@@ -23,3 +23,9 @@ CREATE TABLE committee_to_candidate_cont_and_ind_exp (
 	sub_id           numeric(19),   -- fec record number
 	election_cycle	 integer        -- election cycle
   );
+CREATE UNIQUE INDEX idx_committee_to_candidate_tran_id
+ON committee_to_candidate_cont_and_ind_exp (tran_id);
+CREATE INDEX idx_committee_to_candidate_cmte_id
+ON committee_to_candidate_cont_and_ind_exp (cmte_id);
+CREATE INDEX idx_committee_to_candidate_cand_id
+ON committee_to_candidate_cont_and_ind_exp (cand_id);
