@@ -24,3 +24,5 @@ CREATE TABLE individual_contributions (
 );
 CREATE UNIQUE INDEX idx_individual_contributions_tran_id
 ON individual_contributions (tran_id);
+CREATE INDEX idx_individual_contributions_cmte_id
+ON individual_contributions (cmte_id);

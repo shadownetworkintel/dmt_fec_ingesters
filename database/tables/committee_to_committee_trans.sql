@@ -22,3 +22,7 @@ CREATE TABLE committee_to_committee_trans (
 	sub_id           numeric(19),   -- fec record number
 	election_cycle   integer        -- election cycle
   );
+CREATE UNIQUE INDEX idx_committee_to_committee_trans_tran_id
+ON committee_to_committee_trans (tran_id);
+CREATE INDEX idx_committee_to_committee_trans_cmte_id
+ON committee_to_committee_trans (cmte_id);
