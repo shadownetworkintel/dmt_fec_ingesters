@@ -15,3 +15,11 @@ CREATE INDEX idx_candidate_committee_linkage_cmte_id
 ON candidate_committee_linkage (cmte_id);
 CREATE INDEX idx_candidate_committee_linkage_cand_id
 ON candidate_committee_linkage (cand_id);
+
+
+-- The candidate-committee linkage file contains information linking the candidate's 
+-- information to information about his or her committee. 
+-- This file shows the candidate’s identification number, candidate’s election year, 
+-- FEC election year, committee identification number, committee type, committee designation, 
+-- and a linkage identification number. 
+-- The end-of-line (EOL) marker is line feed '\n' (LF, 0x0A, 10 in decimal).
