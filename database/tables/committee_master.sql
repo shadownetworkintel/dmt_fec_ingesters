@@ -19,3 +19,14 @@ CREATE TABLE committee_master (
 );
 CREATE UNIQUE INDEX idx_committee_master_cmte_id
 ON committee_master (cmte_id);
+
+-- The committee master file contains basic information for each committee 
+-- registered with the Federal Election Commission, including:
+-- Federal political action committees and party committees
+-- Campaign committees for presidential, house, and senate candidates
+-- Groups or organizations spending money for or against candidates for federal office
+-- The file has one record per committee and shows the committee identification number, 
+-- committee name, sponsor (when appropriate), treasurer name, committee address, 
+-- information about the type of committee, and the candidate identification number 
+-- (for campaign committees). 
+-- The end-of-line (EOL) marker is line feed '\n' (LF, 0x0A, 10 in decimal).
