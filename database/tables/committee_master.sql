@@ -17,3 +17,5 @@ CREATE TABLE committee_master (
     cand_id                 VARCHAR(9),              -- Associated candidate (if applicable)
     election_cycle          INTEGER
 );
+CREATE UNIQUE INDEX idx_committee_master_cmte_id
+ON committee_master (cmte_id);

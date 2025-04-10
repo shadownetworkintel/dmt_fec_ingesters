@@ -9,3 +9,9 @@ CREATE TABLE candidate_committee_linkage (
     linkage_id			 SERIAL PRIMARY KEY,
     election_cycle       INTEGER
     );
+CREATE UNIQUE INDEX idx_candidate_committee_linkage_linkage_id
+ON candidate_committee_linkage (linkage_id);
+CREATE INDEX idx_candidate_committee_linkage_cmte_id
+ON candidate_committee_linkage (cmte_id);
+CREATE INDEX idx_candidate_committee_linkage_cand_id
+ON candidate_committee_linkage (cand_id);
