@@ -15,7 +15,7 @@ DB_CONFIG = {
 }
 
 DATA_DIR = r'C:\Users\rasho\Downloads'  # where your .zip files are located
-BASE_URL = "https://www.fec.gov/files/bulk-downloads/"
+BASE_URL = "https://www.fec.gov/files/bulk-downloads"
 
 def download_and_extract(zip_filename, extracted_filename, cycle, data_dir=DATA_DIR ):
     os.makedirs(data_dir, exist_ok=True)
@@ -41,14 +41,6 @@ def download_and_extract(zip_filename, extracted_filename, cycle, data_dir=DATA_
         zipf.extract(extracted_filename, path=data_dir)
 
     return extracted_path
-
-#def unzip_file(zip_filename, extracted_filename):
-#    zip_path = os.path.join(DATA_DIR, zip_filename)
-#    with ZipFile(zip_path, 'r') as zipf:
-#        zipf.extract(extracted_filename, path=DATA_DIR)
-#    return os.path.join(DATA_DIR, extracted_filename)
-
-
 
 def parse_date(mmddyyyy):
     if mmddyyyy == '':
