@@ -31,10 +31,14 @@ def fetch_and_insert_data():
         params = {
             "two_year_transaction_period": 2026,
             "api_key": FEC_API_KEY,
-            "per_page": 100
+            "per_page": 100,
+            "sort": "-contribution_receipt_date"
         }
         if latest_load_date:
-            params["min_load_date"] = latest_load_date.strftime("%Y-%m-%d")
+            params["min_load_date"] = '2021-01-01' #latest_load_date.strftime("%Y-%m-%d")
+
+        #params["last_contribution_receipt_date"] = '2025-03-12'
+        #params["last_index"] = 4032420251180910878
 
         total_inserted = 0
         last_indexes = {}
@@ -47,6 +51,7 @@ def fetch_and_insert_data():
                 params["last_contribution_receipt_date"] = last_indexes["last_contribution_receipt_date"]
             if "sort_null_only" in last_indexes:
                 params["sort_null_only"] = last_indexes["sort_null_only"]
+
 
             # print(f"Requesting with params: {params}")
             r = requests.get(url, params=params)
@@ -66,7 +71,7 @@ def fetch_and_insert_data():
             # Prepare data for batch insertion
             rows = []
             for result in results:
-                rows.append((
+                row = (
                     result.get('amendment_indicator'),
                     result.get('amendment_indicator_desc'),
                     result.get('back_reference_schedule_name'),
@@ -146,33 +151,109 @@ def fetch_and_insert_data():
                     result.get('transaction_id'),
                     result.get('two_year_transaction_period'),
                     result.get('unused_contbr_id')
-                ))
-
-            # Batch insert into the database
-            execute_batch(cur, """
-                INSERT INTO schedule_a_contributions (
-                    amendment_indicator, amendment_indicator_desc, back_reference_schedule_name, back_reference_transaction_id,
-                    candidate_first_name, candidate_id, candidate_last_name, candidate_middle_name, candidate_name,
-                    candidate_office, candidate_office_district, candidate_office_full, candidate_office_state, candidate_office_state_full,
-                    candidate_prefix, candidate_suffix, committee_id, committee_name, conduit_committee_city, conduit_committee_id,
-                    conduit_committee_name, conduit_committee_state, conduit_committee_street1, conduit_committee_street2, conduit_committee_zip,
-                    contribution_receipt_amount, contribution_receipt_date, contributor_aggregate_ytd, contributor_city, contributor_employer,
-                    contributor_first_name, contributor_id, contributor_last_name, contributor_middle_name, contributor_name, contributor_occupation,
-                    contributor_prefix, contributor_state, contributor_street_1, contributor_street_2, contributor_suffix, contributor_zip,
-                    donor_committee_name, election_type, election_type_full, entity_type, entity_type_desc, fec_election_type_desc, fec_election_year,
-                    file_number, filing_form, image_number, increased_limit, is_individual, line_number, line_number_label, link_id, load_date,
-                    memo_code, memo_code_full, memo_text, memoed_subtotal, national_committee_nonfederal_account, original_sub_id, pdf_url,
-                    receipt_type, receipt_type_desc, receipt_type_full, recipient_committee_designation, recipient_committee_org_type,
-                    recipient_committee_type, report_type, report_year, schedule_type, schedule_type_full, sub_id, transaction_id,
-                    two_year_transaction_period, unused_contbr_id
-                ) VALUES (
-                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
-                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
-                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
-                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
                 )
-                ON CONFLICT (sub_id) DO NOTHING;
-            """, rows)
+
+                # Print the row if you suspect a problem
+                # for idx, value in enumerate(row):
+                #     if isinstance(value, (dict, list)):
+                #         print(f"Index {idx} value is {type(value)}: {value}")
+
+                rows.append(row)
+
+            try:
+                # Batch insert into the database
+                execute_batch(cur, """
+                    INSERT INTO schedule_a_contributions (
+                        amendment_indicator, 
+                        amendment_indicator_desc, 
+                        back_reference_schedule_name, 
+                        back_reference_transaction_id,
+                        candidate_first_name, 
+                        candidate_id, candidate_last_name, 
+                        candidate_middle_name, 
+                        candidate_name,
+                        candidate_office, 
+                        candidate_office_district, 
+                        candidate_office_full, 
+                        candidate_office_state, 
+                        candidate_office_state_full,
+                        candidate_prefix, 
+                        candidate_suffix, 
+                        committee_id, 
+                        committee_name, 
+                        conduit_committee_city, 
+                        conduit_committee_id,
+                        conduit_committee_name, 
+                        conduit_committee_state, 
+                        conduit_committee_street1, 
+                        conduit_committee_street2, 
+                        conduit_committee_zip,
+                        contribution_receipt_amount, 
+                        contribution_receipt_date, 
+                        contributor_aggregate_ytd, 
+                        contributor_city, 
+                        contributor_employer,
+                        contributor_first_name, 
+                        contributor_id, 
+                        contributor_last_name, 
+                        contributor_middle_name, 
+                        contributor_name, 
+                        contributor_occupation,
+                        contributor_prefix, 
+                        contributor_state, 
+                        contributor_street_1, 
+                        contributor_street_2, 
+                        contributor_suffix, 
+                        contributor_zip,
+                        donor_committee_name, 
+                        election_type, 
+                        election_type_full, 
+                        entity_type, 
+                        entity_type_desc, 
+                        fec_election_type_desc, 
+                        fec_election_year,
+                        file_number, 
+                        filing_form, 
+                        image_number, 
+                        increased_limit, 
+                        is_individual, 
+                        line_number, 
+                        line_number_label, 
+                        link_id, 
+                        load_date,
+                        memo_code, 
+                        memo_code_full, 
+                        memo_text, 
+                        memoed_subtotal, 
+                        national_committee_nonfederal_account, 
+                        original_sub_id, 
+                        pdf_url,
+                        receipt_type, 
+                        receipt_type_desc, 
+                        receipt_type_full, 
+                        recipient_committee_designation, 
+                        recipient_committee_org_type,
+                        recipient_committee_type, 
+                        report_type, 
+                        report_year, 
+                        schedule_type, 
+                        schedule_type_full, 
+                        sub_id, 
+                        transaction_id,
+                        two_year_transaction_period, 
+                        unused_contbr_id
+                    ) VALUES (
+                        %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                        %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                        %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                        %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+                    )
+                    ON CONFLICT (sub_id) DO NOTHING;
+                """, rows)
+            except Exception as e:
+                print("Failed batch params:", params)
+                print("Failed batch rows:", rows)
+                raise
 
             conn.commit()
             total_inserted += len(rows)
@@ -202,3 +283,8 @@ if __name__ == "__main__":
     fetch_and_insert_data()
     # Play a beep sound (frequency, duration in ms)
     winsound.Beep(1000, 700)
+
+# Inserted 100 rows. Last indexes: {'last_contribution_receipt_date': '2025-03-12', 'last_index': '4032420251180910878'}
+# Database error: invalid input syntax for type boolean: "C00345132"
+# LINE 1677: ...AN JEWISH COALITION-POLITICAL ACTION COM', false, 'C00345132...
+#                                                                 ^
