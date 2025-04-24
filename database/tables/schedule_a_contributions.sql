@@ -62,7 +62,7 @@ CREATE TABLE schedule_a_contributions (
     memo_code_full TEXT,
     memo_text TEXT,
     memoed_subtotal BOOLEAN,
-    national_committee_nonfederal_account BOOLEAN,
+    national_committee_nonfederal_account TEXT,
     original_sub_id BIGINT,
     pdf_url TEXT,
     receipt_type VARCHAR(3),
