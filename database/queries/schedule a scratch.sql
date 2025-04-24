@@ -69,9 +69,3 @@ FROM schedule_a_contributions a
 JOIN committee_master c ON a.committee_id = c.cmte_id
 WHERE c.cmte_tp IN ('I', 'O')  -- I = Independent Expenditure-Only (Super PAC), O = Single Candidate Independent
 ORDER BY a.contribution_receipt_amount DESC;
-
-
-select distinct cmte_tp, count(*) from committee_master
-group by distinct cmte_tp;
-
-select * from committee_master where cmte_id = 'C00540302'
