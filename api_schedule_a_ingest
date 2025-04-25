@@ -37,8 +37,8 @@ def fetch_and_insert_data():
         if latest_load_date:
             params["min_load_date"] = '2021-01-01' #latest_load_date.strftime("%Y-%m-%d")
 
-        #params["last_contribution_receipt_date"] = '2025-03-12'
-        #params["last_index"] = 4032420251180910878
+        params["last_contribution_receipt_date"] = '2025-03-01'
+        params["last_index"] = 4041520251184180224
 
         total_inserted = 0
         last_indexes = {}
