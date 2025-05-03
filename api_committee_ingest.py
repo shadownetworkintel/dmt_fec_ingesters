@@ -5,13 +5,13 @@ import time
 import winsound
 import json
 
-FEC_API_KEY = "YOUR_FEC_API_KEY"
+FEC_API_KEY = "23AAniIpvgK6UadWi7jJxF7hAeKVxLqSdxY9RLS1"
 url = "https://api.open.fec.gov/v1/committees/"
 
 DB_CONFIG = {
     'dbname': 'political_finance_data',
     'user': 'postgres',
-    'password': 'YOUR_DB_PASSWORD',
+    'password': 'EMvAYOrD#BYU8y',
     'host': 'localhost',
     'port': 5432
 }
@@ -40,16 +40,12 @@ def fetch_and_insert_committees():
         params = {
             "api_key": FEC_API_KEY,
             "per_page": 100,
-            "sort": "committee_id"
+            "sort": "committee_id",
+            "page": 1
         }
         total_inserted = 0
-        last_indexes = {}
 
         while True:
-            # Add keyset pagination params if present
-            if "last_index" in last_indexes:
-                params["last_index"] = last_indexes["last_index"]
-
             print("Requesting with params:", params)
             r = requests.get(url, params=params)
             if r.status_code != 200:
@@ -58,8 +54,6 @@ def fetch_and_insert_committees():
 
             data = r.json()
             results = data.get('results', [])
-            pagination = data.get('pagination', {})
-            last_indexes = pagination.get('last_indexes', {})
 
             if not results:
                 print("No more data to fetch.")
@@ -91,13 +85,12 @@ def fetch_and_insert_committees():
                 """, rows)
                 conn.commit()
                 total_inserted += len(rows)
-                print(f"Inserted {len(rows)} rows. Last indexes: {last_indexes}")
+                print(f"Inserted {len(rows)} rows. Page: {params['page']}")
             except Exception as e:
                 print("Database error:", e)
                 break
 
-            if not last_indexes:
-                break
+            params["page"] += 1  # Move to next page
 
             time.sleep(3.7)  # Respect API rate limits
 

@@ -35,10 +35,7 @@ def fetch_and_insert_data():
             "sort": "-contribution_receipt_date"
         }
         if latest_load_date:
-            params["min_load_date"] = '2021-01-01' #latest_load_date.strftime("%Y-%m-%d")
-
-        params["last_contribution_receipt_date"] = '2025-03-01'
-        params["last_index"] = 4041520251184180224
+            params["min_load_date"] = latest_load_date.strftime("%Y-%m-%d")
 
         total_inserted = 0
         last_indexes = {}
@@ -282,9 +279,4 @@ def fetch_and_insert_data():
 if __name__ == "__main__":
     fetch_and_insert_data()
     # Play a beep sound (frequency, duration in ms)
-    winsound.Beep(1000, 700)
-
-# Inserted 100 rows. Last indexes: {'last_contribution_receipt_date': '2025-03-12', 'last_index': '4032420251180910878'}
-# Database error: invalid input syntax for type boolean: "C00345132"
-# LINE 1677: ...AN JEWISH COALITION-POLITICAL ACTION COM', false, 'C00345132...
-#                                                                 ^
+    winsound.Beep(1000, 700)                                                               ^
