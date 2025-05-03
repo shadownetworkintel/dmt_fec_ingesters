@@ -5,13 +5,13 @@ import time
 import winsound
 from datetime import datetime, timedelta
 
-FEC_API_KEY = "YOUR_FEC_API_KEY"
+FEC_API_KEY = "REDACTED_SECRET"
 url = "https://api.open.fec.gov/v1/schedules/schedule_b/"
 
 DB_CONFIG = {
     'dbname': 'political_finance_data',
     'user': 'postgres',
-    'password': 'YOUR_DB_PASSWORD',
+    'password': 'REDACTED_PASSWORD',
     'host': 'localhost',
     'port': 5432
 }
@@ -41,7 +41,7 @@ def fetch_and_insert_schedule_b():
         cur = conn.cursor()
 
         DAYS_BACK = 30
-        min_load_date = (datetime.today() - timedelta(days=DAYS_BACK)).strftime("%Y-%m-%d")
+        min_load_date = '2021-01-01' #(datetime.today() - timedelta(days=DAYS_BACK)).strftime("%Y-%m-%d")
         params = {
             "api_key": FEC_API_KEY,
             "per_page": 100,
@@ -59,7 +59,7 @@ def fetch_and_insert_schedule_b():
             if "last_disbursement_date" in last_indexes:
                 params["last_disbursement_date"] = last_indexes["last_disbursement_date"]
 
-            print("Requesting with params:", params)
+            # print("Requesting with params:", params)
             r = requests.get(url, params=params)
             if r.status_code != 200:
                 print(f"Failed to fetch data: {r.status_code}")
