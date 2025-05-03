@@ -74,7 +74,7 @@ CREATE TABLE schedule_b_disbursements (
     report_year INTEGER,
     schedule_type TEXT,
     schedule_type_full TEXT,
-    semi_annual_bundled_refund BOOLEAN,
+    semi_annual_bundled_refund NUMERIC,
     sub_id TEXT PRIMARY KEY,
     transaction_id TEXT,
     two_year_transaction_period INTEGER,
