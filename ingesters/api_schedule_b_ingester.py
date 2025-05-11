@@ -1,20 +1,22 @@
-import requests
-import psycopg2
-from psycopg2.extras import execute_batch
+import os
+import json
 import time
-import winsound
 from datetime import datetime, timedelta
+import requests
+from dotenv import load_dotenv
+from psycopg2.extras import execute_batch
+from core.logger import get_logger
+from core.database import get_db_connection
+from core.state_tracker import get_last_run, update_last_run
 
-FEC_API_KEY = "REDACTED_SECRET"
-url = "https://api.open.fec.gov/v1/schedules/schedule_b/"
+load_dotenv()
+logger = get_logger("api_schedule_b_ingester")
 
-DB_CONFIG = {
-    'dbname': 'political_finance_data',
-    'user': 'postgres',
-    'password': 'EMvAYOrD#BYU8y',
-    'host': 'localhost',
-    'port': 5432
-}
+FEC_API_KEY = os.getenv("FEC_API_KEY")
+FEC_API_URL = "https://api.open.fec.gov/v1/schedules/schedule_b/"
+PAGE_SIZE = 100
+SLEEP_SECONDS = 3.7
+DAYS_BACK = 30
 
 # List of all fields as per FEC API documentation (2024-04)
 ALL_FIELDS = [
@@ -35,20 +37,30 @@ ALL_FIELDS = [
     "sub_id", "transaction_id", "two_year_transaction_period", "unused_recipient_id"
 ]
 
-def fetch_and_insert_schedule_b():
+def run():    
+    logger.info("Starting schedule b ingestion.")
+
+    conn = None
+    total_inserted = 0
+    page = 1
+
     try:
-        conn = psycopg2.connect(**DB_CONFIG)
+        conn = get_db_connection()
         cur = conn.cursor()
 
-        DAYS_BACK = 30
-        min_load_date = '2021-01-01' #(datetime.today() - timedelta(days=DAYS_BACK)).strftime("%Y-%m-%d")
+        last_run = get_last_run("schedule_b")
         params = {
             "api_key": FEC_API_KEY,
             "per_page": 100,
             "sort": "-disbursement_date",
-            "min_load_date": min_load_date,
             "two_year_transaction_period": 2026
         }
+        if last_run:
+            last_run_date = datetime.fromisoformat(last_run).date()
+            min_load_date = (last_run_date - timedelta(days=DAYS_BACK)).strftime("%Y-%m-%d")
+            params["min_load_date"] = min_load_date
+
+        logger.debug(f"Requesting page {page} from FEC API.")
         total_inserted = 0
         last_indexes = {}
 
@@ -60,12 +72,14 @@ def fetch_and_insert_schedule_b():
                 params["last_disbursement_date"] = last_indexes["last_disbursement_date"]
 
             # print("Requesting with params:", params)
-            r = requests.get(url, params=params)
-            if r.status_code != 200:
-                print(f"Failed to fetch data: {r.status_code}")
-                break
+            response = requests.get(FEC_API_URL, params=params)
+            response.raise_for_status()
 
-            data = r.json()
+            if response.status_code != 200:
+                print(f"Failed to fetch data: {response.status_code}")
+                break
+            data = response.json()
+
             results = data.get('results', [])
             pagination = data.get('pagination', {})
             last_indexes = pagination.get('last_indexes', {})
@@ -89,31 +103,27 @@ def fetch_and_insert_schedule_b():
                     ON CONFLICT (sub_id) DO NOTHING;
                 """, rows)
                 conn.commit()
+                logger.info(f"Inserted {len(rows)} rows from page {page}.")
                 total_inserted += len(rows)
-                print(f"Inserted {len(rows)} rows. Last indexes: {last_indexes}")
             except Exception as e:
-                print("Database error:", e)
+                print("Failed batch params:", params)
+                print("Failed batch rows:", rows)
                 break
 
             if not last_indexes:
+                update_last_run("schedule_b")
+                logger.info(f"Schedule B ingestion complete. Total rows inserted: {total_inserted}")
                 break
 
-            time.sleep(3.7)  # Respect API rate limits
+            page += 1
+            time.sleep(SLEEP_SECONDS)  # Respect API rate limits
 
-        print(f"Total rows inserted: {total_inserted}")
-
-    except psycopg2.Error as db_error:
-        print(f"Database error: {db_error}")
-    except requests.RequestException as api_error:
-        print(f"API error: {api_error}")
     except Exception as e:
-        print(f"Unexpected error: {e}")
+        logger.exception(f"Schedule A ingestion failed: {e}")
     finally:
         if 'cur' in locals():
             cur.close()
         if 'conn' in locals():
             conn.close()
-
 if __name__ == "__main__":
-    fetch_and_insert_schedule_b()
-    winsound.Beep(2000, 500)
+    run()
