@@ -1,21 +1,16 @@
 import os
 import json
 import time
+from datetime import datetime
 import requests
 from dotenv import load_dotenv
-
 from psycopg2.extras import execute_batch
 from core.logger import get_logger
 from core.database import get_db_connection
 from core.state_tracker import get_last_run, update_last_run
 
 load_dotenv()
-logger = get_logger("candidates_ingester")
-
-last_run = get_last_run("candidates")
-if last_run:
-    params["min_first_file_date"] = last_run  # or another suitable field
-
+logger = get_logger("api_candidates_ingester")
 
 FEC_API_KEY = os.getenv("FEC_API_KEY")
 FEC_API_URL = "https://api.open.fec.gov/v1/candidates/"
@@ -42,6 +37,8 @@ def run():
         conn = get_db_connection()
         cur = conn.cursor()
 
+        last_run = get_last_run("candidates")
+
         while True:
             params = {
                 "api_key": FEC_API_KEY,
@@ -49,6 +46,10 @@ def run():
                 "sort": "candidate_id",
                 "page": page
             }
+            if last_run:
+                last_run_date = datetime.fromisoformat(last_run).date().isoformat()
+                params["min_first_file_date"] = last_run_date
+
             logger.debug(f"Requesting page {page} from FEC API.")
 
             response = requests.get(FEC_API_URL, params=params)
@@ -82,7 +83,6 @@ def run():
 
             execute_batch(cur, insert_sql, rows)
             conn.commit()
-            update_last_run("candidates")
             logger.info(f"Inserted {len(rows)} rows from page {page}.")
             total_inserted += len(rows)
             page += 1
@@ -95,6 +95,7 @@ def run():
         if conn:
             conn.close()
 
+    update_last_run("candidates")
     logger.info(f"Candidate ingestion complete. Total rows inserted: {total_inserted}")
 
 if __name__ == "__main__":
