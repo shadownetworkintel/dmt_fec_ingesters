@@ -1,22 +1,22 @@
 import requests
-import psycopg2
-from psycopg2.extras import execute_batch
-import time
-import winsound
 import json
+import time
+from datetime import datetime
+import os
+from dotenv import load_dotenv
+from psycopg2.extras import execute_batch
+from core.logger import get_logger
+from core.database import get_db_connection
+from core.state_tracker import get_last_run, update_last_run
 
-FEC_API_KEY = "23AAniIpvgK6UadWi7jJxF7hAeKVxLqSdxY9RLS1"
-url = "https://api.open.fec.gov/v1/committees/"
+load_dotenv()
+logger = get_logger("api_committees_ingester")
 
-DB_CONFIG = {
-    'dbname': 'political_finance_data',
-    'user': 'postgres',
-    'password': 'EMvAYOrD#BYU8y',
-    'host': 'localhost',
-    'port': 5432
-}
+FEC_API_KEY = os.getenv("FEC_API_KEY")
+FEC_API_URL = "https://api.open.fec.gov/v1/committees/"
+PAGE_SIZE = 100
+SLEEP_SECONDS = 3.7
 
-# All fields as of FEC API documentation (2024-04, may need to update if FEC adds new fields)
 COMMITTEE_FIELDS = [
     "committee_id", "name", "designation", "designation_full", "committee_type", "committee_type_full",
     "organization_type", "organization_type_full", "party", "party_full", "state", "state_full",
@@ -32,31 +32,39 @@ COMMITTEE_FIELDS = [
     "sponsor_type", "sponsor_type_full", "sponsor_zip", "terminated"
 ]
 
-def fetch_and_insert_committees():
-    try:
-        conn = psycopg2.connect(**DB_CONFIG)
-        cur = conn.cursor()
+def run():
+    logger.info("Starting committees ingestion.")
 
-        params = {
-            "api_key": FEC_API_KEY,
-            "per_page": 100,
-            "sort": "committee_id",
-            "page": 1
-        }
-        total_inserted = 0
+    conn = None
+    total_inserted = 0
+    page = 1
+
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        
+        last_run = get_last_run("committees")
 
         while True:
-            print("Requesting with params:", params)
-            r = requests.get(url, params=params)
-            if r.status_code != 200:
-                print(f"Failed to fetch data: {r.status_code}")
-                break
+            params = {
+                "api_key": FEC_API_KEY,
+                "per_page": PAGE_SIZE,
+                "sort": "committee_id",
+                "page": page
+            }
+            if last_run:
+                last_run_date = datetime.fromisoformat(last_run).date().isoformat()
+                params["min_first_file_date"] = last_run
 
-            data = r.json()
-            results = data.get('results', [])
+            logger.debug(f"Requesting page {page} from FEC API.")
+            
+            response = requests.get(FEC_API_URL, params=params)
+            response.raise_for_status()
+            data = response.json()
 
+            results = data.get("results", [])
             if not results:
-                print("No more data to fetch.")
+                logger.info("No more data to fetch.")
                 break
 
             rows = []
@@ -64,7 +72,6 @@ def fetch_and_insert_committees():
                 row = []
                 for field in COMMITTEE_FIELDS:
                     val = result.get(field)
-                    # Store lists/dicts as JSON strings for JSONB columns
                     if field in [
                         'candidate_ids', 'cycles', 'cycles_has_activity', 'cycles_has_financial', 'jfc_committee',
                         'sponsor_candidate_ids', 'sponsor_candidate_list'
@@ -74,40 +81,30 @@ def fetch_and_insert_committees():
                         row.append(val)
                 rows.append(tuple(row))
 
-            try:
-                execute_batch(cur, f"""
-                    INSERT INTO committees (
-                        {', '.join(COMMITTEE_FIELDS)}
-                    ) VALUES (
-                        {', '.join(['%s'] * len(COMMITTEE_FIELDS))}
-                    )
-                    ON CONFLICT (committee_id) DO NOTHING;
-                """, rows)
-                conn.commit()
-                total_inserted += len(rows)
-                print(f"Inserted {len(rows)} rows. Page: {params['page']}")
-            except Exception as e:
-                print("Database error:", e)
-                break
+            insert_sql = f"""
+                INSERT INTO committees (
+                    {', '.join(COMMITTEE_FIELDS)}
+                ) VALUES (
+                    {', '.join(['%s'] * len(COMMITTEE_FIELDS))}
+                )
+                ON CONFLICT (committee_id) DO NOTHING;
+            """
+            execute_batch(cur, insert_sql, rows)
+            conn.commit()
+            logger.info(f"Inserted {len(rows)} rows (page {params['page']})")
+            total_inserted += len(rows)
+            page += 1
 
-            params["page"] += 1  # Move to next page
+            time.sleep(SLEEP_SECONDS)
 
-            time.sleep(3.7)  # Respect API rate limits
-
-        print(f"Total rows inserted: {total_inserted}")
-
-    except psycopg2.Error as db_error:
-        print(f"Database error: {db_error}")
-    except requests.RequestException as api_error:
-        print(f"API error: {api_error}")
     except Exception as e:
-        print(f"Unexpected error: {e}")
+        logger.exception(f"Committee ingestion failed: {e}")
     finally:
-        if 'cur' in locals():
-            cur.close()
-        if 'conn' in locals():
+        if conn:
             conn.close()
 
+    update_last_run("committees")
+    logger.info(f"Committee ingestion complete. Total rows inserted: {total_inserted}")
+
 if __name__ == "__main__":
-    fetch_and_insert_committees()
-    winsound.Beep(2000, 500)
+    run()
