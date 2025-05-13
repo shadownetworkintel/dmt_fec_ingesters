@@ -16,9 +16,9 @@ FEC_API_KEY = os.getenv("FEC_API_KEY")
 FEC_API_URL = "https://api.open.fec.gov/v1/schedules/schedule_b/"
 PAGE_SIZE = 100
 SLEEP_SECONDS = 3.7
-DAYS_BACK = 30
+DAYS_BACK = 2
+SORT_COLUMN = '-disbursement_date'
 
-# List of all fields as per FEC API documentation (2024-04)
 ALL_FIELDS = [
     "amendment_indicator", "amendment_indicator_desc", "back_reference_schedule_name", "back_reference_transaction_id",
     "beneficiary_committee_name", "candidate_first_name", "candidate_id", "candidate_last_name", "candidate_middle_name",
@@ -38,7 +38,7 @@ ALL_FIELDS = [
 ]
 
 def run():    
-    logger.info("Starting schedule b ingestion.")
+    logger.info("Starting schedule B ingester")
 
     conn = None
     total_inserted = 0
@@ -51,41 +51,57 @@ def run():
         last_run = get_last_run("schedule_b")
         params = {
             "api_key": FEC_API_KEY,
-            "per_page": 100,
-            "sort": "-disbursement_date",
-            "two_year_transaction_period": 2026
+            "per_page": PAGE_SIZE,
+            "sort": SORT_COLUMN
         }
         if last_run:
             last_run_date = datetime.fromisoformat(last_run).date()
             min_load_date = (last_run_date - timedelta(days=DAYS_BACK)).strftime("%Y-%m-%d")
             params["min_load_date"] = min_load_date
 
-        logger.debug(f"Requesting page {page} from FEC API.")
         total_inserted = 0
         last_indexes = {}
 
         while True:
-            # Add keyset pagination params if present
-            if "last_index" in last_indexes:
-                params["last_index"] = last_indexes["last_index"]
-            if "last_disbursement_date" in last_indexes:
-                params["last_disbursement_date"] = last_indexes["last_disbursement_date"]
+            # Remove any old pagination keys from params
+            for key in list(params.keys()):
+                if key in last_indexes:
+                    params.pop(key)
 
-            # print("Requesting with params:", params)
+            # Add all keys from last_indexes to params
+            for key, value in last_indexes.items():
+                params[key] = value
+
+            logger.info(
+                f"Fetching page {page}\n"
+                f"   - min_load_date: {params.get('min_load_date')}\n"
+                f"   - last_index: {params.get('last_index')}\n"
+                f"   - last_disbursement_date: {params.get('last_disbursement_date')}"
+            )
             response = requests.get(FEC_API_URL, params=params)
             response.raise_for_status()
 
             if response.status_code != 200:
-                print(f"Failed to fetch data: {response.status_code}")
+                logger.error(
+                    f"API request failed\n"
+                    f"   - Status code: {response.status_code}\n"
+                    f"   - URL: {response.url}\n"
+                    f"   - min_load_date: {params.get('min_load_date')}\n"
+                    f"   - last_index: {params.get('last_index')}\n"
+                    f"   - last_disbursement_date: {params.get('last_disbursement_date')}\n"
+                    f"   - Response snippet: {response.text.strip()[:300]}"
+                )
                 break
             data = response.json()
 
             results = data.get('results', [])
             pagination = data.get('pagination', {})
             last_indexes = pagination.get('last_indexes', {})
+            print(f"LAST INDEXES: {last_indexes}")
 
             if not results:
-                print("No more data to fetch.")
+                update_last_run("schedule_b")
+                logger.info(f"Schedule B ingester complete. Total rows inserted: {total_inserted}")
                 break
 
             rows = []
@@ -93,33 +109,49 @@ def run():
                 row = tuple(result.get(field) for field in ALL_FIELDS)
                 rows.append(row)
 
-            try:
-                execute_batch(cur, f"""
-                    INSERT INTO schedule_b_disbursements (
-                        {', '.join(ALL_FIELDS)}
-                    ) VALUES (
-                        {', '.join(['%s'] * len(ALL_FIELDS))}
-                    )
-                    ON CONFLICT (sub_id) DO NOTHING;
-                """, rows)
-                conn.commit()
-                logger.info(f"Inserted {len(rows)} rows from page {page}.")
-                total_inserted += len(rows)
-            except Exception as e:
-                print("Failed batch params:", params)
-                print("Failed batch rows:", rows)
-                break
+            insert_sql = f"""
+                INSERT INTO schedule_b_disbursements (
+                    {', '.join(ALL_FIELDS)}
+                ) VALUES (
+                    {', '.join(['%s'] * len(ALL_FIELDS))}
+                )
+                ON CONFLICT (sub_id) DO UPDATE SET
+                    {', '.join([
+                        f"{field} = EXCLUDED.{field}" 
+                        for field in ALL_FIELDS 
+                        if field != "sub_id"
+                    ])},
+                    last_updated = CURRENT_TIMESTAMP
+                WHERE { ' OR '.join([
+                    f"schedule_b_disbursements.{field} IS DISTINCT FROM EXCLUDED.{field}" 
+                    for field in ALL_FIELDS 
+                    if field != "sub_id"
+                ])}
+            """
+            execute_batch(cur, insert_sql, rows)
+            conn.commit()
+            logger.info(f"Inserted {len(rows)} rows from page {page}.")
+            total_inserted += len(rows)
 
             if not last_indexes:
                 update_last_run("schedule_b")
-                logger.info(f"Schedule B ingestion complete. Total rows inserted: {total_inserted}")
+                logger.info(f"Schedule B ingester complete. Total rows inserted: {total_inserted}")
                 break
 
             page += 1
             time.sleep(SLEEP_SECONDS)  # Respect API rate limits
 
     except Exception as e:
-        logger.exception(f"Schedule A ingestion failed: {e}")
+        logger.error(
+            f"Schedule B ingester encountered an error\n"
+            f"   - Status code: {response.status_code}\n"
+            f"   - URL: {response.url}\n"
+            f"   - min_load_date: {params.get('min_load_date')}\n"
+            f"   - last_index: {params.get('last_index')}\n"
+            f"   - last_disbursement_date: {params.get('last_disbursement_date')}\n"
+            f"   - Response snippet: {response.text.strip()[:300]}"
+            f"   - Error: {str(e)}"
+        )
     finally:
         if 'cur' in locals():
             cur.close()

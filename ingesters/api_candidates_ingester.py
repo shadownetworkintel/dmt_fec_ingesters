@@ -27,7 +27,7 @@ CANDIDATE_FIELDS = [
 ]
 
 def run():
-    logger.info("Starting candidate ingestion.")
+    logger.info("Starting candidates ingester")
 
     conn = None
     total_inserted = 0
@@ -39,26 +39,39 @@ def run():
 
         last_run = get_last_run("candidates")
 
+        params = {
+            "api_key": FEC_API_KEY,
+            "per_page": PAGE_SIZE,
+            "sort": "candidate_id"
+        }
+        if last_run:
+            last_run_date = datetime.fromisoformat(last_run).date().isoformat()
+            params["min_first_file_date"] = last_run_date
+
         while True:
-            params = {
-                "api_key": FEC_API_KEY,
-                "per_page": PAGE_SIZE,
-                "sort": "candidate_id",
-                "page": page
-            }
-            if last_run:
-                last_run_date = datetime.fromisoformat(last_run).date().isoformat()
-                params["min_first_file_date"] = last_run_date
+            params["page"] = page
 
-            logger.debug(f"Requesting page {page} from FEC API.")
-
+            logger.info(
+                f"Fetching page {page} - min_first_file_date: {params.get('min_first_file_date')}"
+            ) 
             response = requests.get(FEC_API_URL, params=params)
             response.raise_for_status()
-            data = response.json()
+            
+            if response.status_code != 200:
+                logger.error(
+                    f"API request failed\n"
+                    f"   - Status code: {response.status_code}\n"
+                    f"   - URL: {response.url}\n"
+                    f"   - min_first_file_date: {params.get('min_first_file_date')}\n"
+                    f"   - Response snippet: {response.text.strip()[:300]}"
+                )
+                break
 
+            data = response.json()
             results = data.get('results', [])
             if not results:
-                logger.info("No more data to fetch.")
+                update_last_run("candidates")
+                logger.info(f"Candidates ingester complete. Total rows inserted: {total_inserted}")
                 break
 
             rows = []
@@ -78,25 +91,34 @@ def run():
                 ) VALUES (
                     {', '.join(['%s'] * len(CANDIDATE_FIELDS))}
                 )
-                ON CONFLICT (candidate_id) DO NOTHING;
+                ON CONFLICT (candidate_id) DO UPDATE SET
+                    {', '.join([
+                        f"{field} = EXCLUDED.{field}" for field in CANDIDATE_FIELDS if field != "candidate_id"
+                    ])},
+                    last_updated = NOW()
+                WHERE { ' OR '.join([f"candidates.{field} IS DISTINCT FROM EXCLUDED.{field}" for field in CANDIDATE_FIELDS if field != "candidate_id"])}
+;
             """
 
             execute_batch(cur, insert_sql, rows)
             conn.commit()
-            logger.info(f"Inserted {len(rows)} rows from page {page}.")
+            logger.info(f"Inserted {len(rows)} rows (page {params['page']})")
             total_inserted += len(rows)
             page += 1
 
             time.sleep(SLEEP_SECONDS)
 
     except Exception as e:
-        logger.exception(f"Candidate ingestion failed: {e}")
+        logger.error(
+            f"Candidates ingester encountered an error\n"
+            f"   - Status code: {response.status_code}\n"
+            f"   - URL: {response.url}\n"
+            f"   - min_first_file_date: {params.get('min_first_file_date')}\n"
+            f"   - Response snippet: {response.text.strip()[:300]}"
+            f"   - Error: {str(e)}"
+        )
     finally:
         if conn:
             conn.close()
-
-    update_last_run("candidates")
-    logger.info(f"Candidate ingestion complete. Total rows inserted: {total_inserted}")
-
 if __name__ == "__main__":
     run()
