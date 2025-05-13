@@ -26,7 +26,9 @@ CREATE TABLE candidates (
     committee_ids JSONB,
     has_raised_funds BOOLEAN,
     principal_campaign_committee_id TEXT,
-    principal_campaign_committee_name TEXT
+    principal_campaign_committee_name TEXT,
+    ingestion_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    last_updated TIMESTAMP
 );
 
 CREATE INDEX idx_candidates_name ON candidates (name);

@@ -17,10 +17,33 @@ FEC_API_KEY = os.getenv("FEC_API_KEY")
 FEC_API_URL = "https://api.open.fec.gov/v1/schedules/schedule_a"
 PAGE_SIZE = 100
 SLEEP_SECONDS = 3.7
-DAYS_BACK = 30
+DAYS_BACK = 2
+TWO_YEAR_TRANSACTION_PERIOD = 2026
+SORT_COLUMN = "-contribution_receipt_date"
+
+SCHEDULE_A_FIELDS = [
+    "amendment_indicator", "amendment_indicator_desc", "back_reference_schedule_name", 
+    "back_reference_transaction_id", "candidate_first_name", "candidate_id", "candidate_last_name", 
+    "candidate_middle_name", "candidate_name", "candidate_office", "candidate_office_district", 
+    "candidate_office_full", "candidate_office_state", "candidate_office_state_full", "candidate_prefix", 
+    "candidate_suffix", "committee_id", "committee_name", "conduit_committee_city", "conduit_committee_id", 
+    "conduit_committee_name", "conduit_committee_state", "conduit_committee_street1", "conduit_committee_street2", 
+    "conduit_committee_zip", "contribution_receipt_amount", "contribution_receipt_date", 
+    "contributor_aggregate_ytd", "contributor_city", "contributor_employer", "contributor_first_name", 
+    "contributor_id", "contributor_last_name", "contributor_middle_name", "contributor_name", 
+    "contributor_occupation", "contributor_prefix", "contributor_state", "contributor_street_1", 
+    "contributor_street_2", "contributor_suffix", "contributor_zip", "donor_committee_name", "election_type", 
+    "election_type_full", "entity_type", "entity_type_desc", "fec_election_type_desc", "fec_election_year", 
+    "file_number", "filing_form", "image_number", "increased_limit", "is_individual", "line_number", 
+    "line_number_label", "link_id", "load_date", "memo_code", "memo_code_full", "memo_text", "memoed_subtotal", 
+    "national_committee_nonfederal_account", "original_sub_id", "pdf_url", "receipt_type", "receipt_type_desc", 
+    "receipt_type_full", "recipient_committee_designation", "recipient_committee_org_type", 
+    "recipient_committee_type", "report_type", "report_year", "schedule_type", "schedule_type_full", "sub_id", 
+    "transaction_id", "two_year_transaction_period", "unused_contbr_id"
+]
 
 def run():
-    logger.info("Starting schedule a ingestion.")
+    logger.info("Starting schedule A ingester")
 
     conn = None
     total_inserted = 0
@@ -33,10 +56,10 @@ def run():
 
         last_run = get_last_run("schedule_a")
         params = {
-            "two_year_transaction_period": 2026,
+            "two_year_transaction_period": TWO_YEAR_TRANSACTION_PERIOD,
             "api_key": FEC_API_KEY,
-            "per_page": 100,
-            "sort": "-contribution_receipt_date"
+            "per_page": PAGE_SIZE,
+            "sort": SORT_COLUMN,
         }
         if last_run:
             last_run_date = datetime.fromisoformat(last_run).date()
@@ -48,21 +71,35 @@ def run():
         last_indexes = {}
     
         while True:
-            # Add keyset pagination params if present
-            if "last_index" in last_indexes:
-                params["last_index"] = last_indexes["last_index"]
-            if "last_contribution_receipt_date" in last_indexes:
-                params["last_contribution_receipt_date"] = last_indexes["last_contribution_receipt_date"]
-            if "sort_null_only" in last_indexes:
-                params["sort_null_only"] = last_indexes["sort_null_only"]
+            # Remove any old pagination keys from params
+            for key in list(params.keys()):
+                if key in last_indexes:
+                    params.pop(key)
 
+            # Add all keys from last_indexes to params
+            for key, value in last_indexes.items():
+                params[key] = value
 
-            # print(f"Requesting with params: {params}")
+            logger.info(
+                f"Fetching page {page}\n"
+                f"   - min_load_date: {params.get('min_load_date')}\n"
+                f"   - last_index: {params.get('last_index')}\n"
+                f"   - last_contribution_receipt_date: {params.get('last_contribution_receipt_date')}"
+            )
+
             response = requests.get(FEC_API_URL, params=params)
             response.raise_for_status()
 
             if response.status_code != 200:
-                print(f"Failed to fetch data: {response.status_code}")
+                logger.error(
+                    f"API request failed\n"
+                    f"   - Status code: {response.status_code}\n"
+                    f"   - URL: {response.url}\n"
+                    f"   - min_load_date: {params.get('min_load_date')}\n"
+                    f"   - last_index: {params.get('last_index')}\n"
+                    f"   - last_contribution_receipt_date: {params.get('last_contribution_receipt_date')}\n"
+                    f"   - Response snippet: {response.text.strip()[:300]}"
+                )
                 break
             data = response.json()
 
@@ -71,198 +108,48 @@ def run():
             last_indexes = pagination.get('last_indexes', {})
 
             if not results:
-                print("No more data to fetch.")
+                update_last_run("schedule_a")
+                logger.info(f"Schedule A ingester complete. Total rows inserted: {total_inserted}")
                 break
 
             # Prepare data for batch insertion
             rows = []
             for result in results:
-                row = (
-                    result.get('amendment_indicator'),
-                    result.get('amendment_indicator_desc'),
-                    result.get('back_reference_schedule_name'),
-                    result.get('back_reference_transaction_id'),
-                    result.get('candidate_first_name'),
-                    result.get('candidate_id'),
-                    result.get('candidate_last_name'),
-                    result.get('candidate_middle_name'),
-                    result.get('candidate_name'),
-                    result.get('candidate_office'),
-                    result.get('candidate_office_district'),
-                    result.get('candidate_office_full'),
-                    result.get('candidate_office_state'),
-                    result.get('candidate_office_state_full'),
-                    result.get('candidate_prefix'),
-                    result.get('candidate_suffix'),
-                    result.get('committee_id'),
-                    result.get('committee_name'),
-                    result.get('conduit_committee_city'),
-                    result.get('conduit_committee_id'),
-                    result.get('conduit_committee_name'),
-                    result.get('conduit_committee_state'),
-                    result.get('conduit_committee_street1'),
-                    result.get('conduit_committee_street2'),
-                    result.get('conduit_committee_zip'),
-                    result.get('contribution_receipt_amount'),
-                    result.get('contribution_receipt_date'),
-                    result.get('contributor_aggregate_ytd'),
-                    result.get('contributor_city'),
-                    result.get('contributor_employer'),
-                    result.get('contributor_first_name'),
-                    result.get('contributor_id'),
-                    result.get('contributor_last_name'),
-                    result.get('contributor_middle_name'),
-                    result.get('contributor_name'),
-                    result.get('contributor_occupation'),
-                    result.get('contributor_prefix'),
-                    result.get('contributor_state'),
-                    result.get('contributor_street_1'),
-                    result.get('contributor_street_2'),
-                    result.get('contributor_suffix'),
-                    result.get('contributor_zip'),
-                    result.get('donor_committee_name'),
-                    result.get('election_type'),
-                    result.get('election_type_full'),
-                    result.get('entity_type'),
-                    result.get('entity_type_desc'),
-                    result.get('fec_election_type_desc'),
-                    result.get('fec_election_year'),
-                    result.get('file_number'),
-                    result.get('filing_form'),
-                    result.get('image_number'),
-                    result.get('increased_limit'),
-                    result.get('is_individual'),
-                    result.get('line_number'),
-                    result.get('line_number_label'),
-                    result.get('link_id'),
-                    result.get('load_date'),
-                    result.get('memo_code'),
-                    result.get('memo_code_full'),
-                    result.get('memo_text'),
-                    result.get('memoed_subtotal'),
-                    result.get('national_committee_nonfederal_account'),
-                    result.get('original_sub_id'),
-                    result.get('pdf_url'),
-                    result.get('receipt_type'),
-                    result.get('receipt_type_desc'),
-                    result.get('receipt_type_full'),
-                    result.get('recipient_committee_designation'),
-                    result.get('recipient_committee_org_type'),
-                    result.get('recipient_committee_type'),
-                    result.get('report_type'),
-                    result.get('report_year'),
-                    result.get('schedule_type'),
-                    result.get('schedule_type_full'),
-                    result.get('sub_id'),
-                    result.get('transaction_id'),
-                    result.get('two_year_transaction_period'),
-                    result.get('unused_contbr_id')
+                row = []
+                for field in SCHEDULE_A_FIELDS:
+                    val = result.get(field)
+                    row.append(val)
+                rows.append(tuple(row))
+
+            insert_sql = f"""
+                INSERT INTO schedule_a_contributions (
+                    {', '.join(SCHEDULE_A_FIELDS)}
+                ) VALUES (
+                    {', '.join(['%s'] * len(SCHEDULE_A_FIELDS))}
                 )
-
-                # Print the row if you suspect a problem
-                # for idx, value in enumerate(row):
-                #     if isinstance(value, (dict, list)):
-                #         print(f"Index {idx} value is {type(value)}: {value}")
-
-                rows.append(row)
-
-            try:
-                # Batch insert into the database
-                execute_batch(cur, """
-                    INSERT INTO schedule_a_contributions (
-                        amendment_indicator, 
-                        amendment_indicator_desc, 
-                        back_reference_schedule_name, 
-                        back_reference_transaction_id,
-                        candidate_first_name, 
-                        candidate_id, candidate_last_name, 
-                        candidate_middle_name, 
-                        candidate_name,
-                        candidate_office, 
-                        candidate_office_district, 
-                        candidate_office_full, 
-                        candidate_office_state, 
-                        candidate_office_state_full,
-                        candidate_prefix, 
-                        candidate_suffix, 
-                        committee_id, 
-                        committee_name, 
-                        conduit_committee_city, 
-                        conduit_committee_id,
-                        conduit_committee_name, 
-                        conduit_committee_state, 
-                        conduit_committee_street1, 
-                        conduit_committee_street2, 
-                        conduit_committee_zip,
-                        contribution_receipt_amount, 
-                        contribution_receipt_date, 
-                        contributor_aggregate_ytd, 
-                        contributor_city, 
-                        contributor_employer,
-                        contributor_first_name, 
-                        contributor_id, 
-                        contributor_last_name, 
-                        contributor_middle_name, 
-                        contributor_name, 
-                        contributor_occupation,
-                        contributor_prefix, 
-                        contributor_state, 
-                        contributor_street_1, 
-                        contributor_street_2, 
-                        contributor_suffix, 
-                        contributor_zip,
-                        donor_committee_name, 
-                        election_type, 
-                        election_type_full, 
-                        entity_type, 
-                        entity_type_desc, 
-                        fec_election_type_desc, 
-                        fec_election_year,
-                        file_number, 
-                        filing_form, 
-                        image_number, 
-                        increased_limit, 
-                        is_individual, 
-                        line_number, 
-                        line_number_label, 
-                        link_id, 
-                        load_date,
-                        memo_code, 
-                        memo_code_full, 
-                        memo_text, 
-                        memoed_subtotal, 
-                        national_committee_nonfederal_account, 
-                        original_sub_id, 
-                        pdf_url,
-                        receipt_type, 
-                        receipt_type_desc, 
-                        receipt_type_full, 
-                        recipient_committee_designation, 
-                        recipient_committee_org_type,
-                        recipient_committee_type, 
-                        report_type, 
-                        report_year, 
-                        schedule_type, 
-                        schedule_type_full, 
-                        sub_id, 
-                        transaction_id,
-                        two_year_transaction_period, 
-                        unused_contbr_id
-                    ) VALUES (
-                        %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
-                        %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
-                        %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
-                        %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
-                    )
-                    ON CONFLICT (sub_id) DO NOTHING;
-                """, rows)
-                conn.commit()
-                logger.info(f"Inserted {len(rows)} rows from page {page}.")
-                total_inserted += len(rows)
-            except Exception as e:
-                print("Failed batch params:", params)
-                print("Failed batch rows:", rows)
-                raise
+                ON CONFLICT (sub_id) DO UPDATE
+                SET
+                    {', '.join(
+                        f"{col} = EXCLUDED.{col}"
+                        for col in SCHEDULE_A_FIELDS
+                        if col not in ("sub_id", "ingestion_date", "last_updated")
+                    )},
+                    last_updated = CASE
+                        WHEN { ' OR '.join(
+                            f"schedule_a_contributions.{col} IS DISTINCT FROM EXCLUDED.{col}"
+                            for col in SCHEDULE_A_FIELDS
+                            if col not in ("sub_id", "ingestion_date", "last_updated")
+                        )}
+                        THEN CURRENT_TIMESTAMP
+                        ELSE schedule_a_contributions.last_updated
+                    END
+            """
+            
+            # Batch insert into the database
+            execute_batch(cur, insert_sql, rows)
+            conn.commit()
+            logger.info(f"Inserted {len(rows)} rows from page {page}.")
+            total_inserted += len(rows)
 
             # Stop if no last_indexes (no more pages)
             if not last_indexes:
@@ -274,7 +161,16 @@ def run():
             time.sleep(SLEEP_SECONDS)  # Respect API rate limits
 
     except Exception as e:
-        logger.exception(f"Schedule A ingestion failed: {e}")
+        logger.error(
+            f"Schedule A ingester encountered an error\n"
+            f"   - Status code: {response.status_code}\n"
+            f"   - URL: {response.url}\n"
+            f"   - min_load_date: {params.get('min_load_date')}\n"
+            f"   - last_index: {params.get('last_index')}\n"
+            f"   - last_contribution_receipt_date: {params.get('last_contribution_receipt_date')}\n"
+            f"   - Response snippet: {response.text.strip()[:300]}"
+            f"   - Error: {str(e)}"
+        )
     finally:
         if 'cur' in locals():
             cur.close()
