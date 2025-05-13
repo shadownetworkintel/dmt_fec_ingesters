@@ -117,7 +117,9 @@ CREATE TABLE schedule_e_expenditures (
     semi_annual_bundled_refund BOOLEAN,
     sub_id TEXT PRIMARY KEY,
     support_oppose_indicator TEXT,
-    transaction_id TEXT
+    transaction_id TEXT,
+    ingestion_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    last_updated TIMESTAMP
 );
 
 CREATE INDEX idx_schedule_e_filing_date ON schedule_e_expenditures (filing_date);

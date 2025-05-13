@@ -79,5 +79,7 @@ CREATE TABLE schedule_a_contributions (
     transaction_id VARCHAR(32),
     two_year_transaction_period INT,
     unused_contbr_id VARCHAR(9),
-    FOREIGN KEY (committee_id) REFERENCES committee_master(cmte_id)
+    FOREIGN KEY (committee_id) REFERENCES committee_master(cmte_id),
+    ingestion_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    last_updated TIMESTAMP
 );

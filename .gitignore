@@ -2,3 +2,4 @@ logs/
 ingest_state.json
 __pycache__/
 .env
+*.log

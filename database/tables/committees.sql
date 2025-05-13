@@ -56,7 +56,9 @@ CREATE TABLE committees (
     sponsor_type TEXT,
     sponsor_type_full TEXT,
     sponsor_zip TEXT,
-    terminated BOOLEAN
+    terminated BOOLEAN,
+    ingestion_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    last_updated TIMESTAMP
 );
 
 CREATE INDEX idx_committees_name ON committees (name);
