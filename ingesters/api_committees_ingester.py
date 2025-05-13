@@ -33,7 +33,7 @@ COMMITTEE_FIELDS = [
 ]
 
 def run():
-    logger.info("Starting committees ingestion.")
+    logger.info("Starting committees ingester")
 
     conn = None
     total_inserted = 0
@@ -45,26 +45,39 @@ def run():
         
         last_run = get_last_run("committees")
 
-        while True:
-            params = {
-                "api_key": FEC_API_KEY,
-                "per_page": PAGE_SIZE,
-                "sort": "committee_id",
-                "page": page
-            }
-            if last_run:
-                last_run_date = datetime.fromisoformat(last_run).date().isoformat()
-                params["min_first_file_date"] = last_run
+        params = {
+            "api_key": FEC_API_KEY,
+            "per_page": PAGE_SIZE,
+            "sort": "committee_id"
+        }
+        if last_run:
+            last_run_date = datetime.fromisoformat(last_run).date().isoformat()
+            params["min_first_file_date"] = last_run_date
 
-            logger.debug(f"Requesting page {page} from FEC API.")
-            
+        while True:
+            params["page"] = page
+
+            logger.info(
+                f"Fetching page {page} - min_first_file_date: {params.get('min_first_file_date')}"
+            )            
             response = requests.get(FEC_API_URL, params=params)
             response.raise_for_status()
-            data = response.json()
+            
+            if response.status_code != 200:
+                logger.error(
+                    f"API request failed\n"
+                    f"   - Status code: {response.status_code}\n"
+                    f"   - URL: {response.url}\n"
+                    f"   - min_first_file_date: {params.get('min_first_file_date')}\n"
+                    f"   - Response snippet: {response.text.strip()[:300]}"
+                )
+                break
 
+            data = response.json()
             results = data.get("results", [])
             if not results:
-                logger.info("No more data to fetch.")
+                update_last_run("committees")
+                logger.info(f"Committee ingester complete. Total rows inserted: {total_inserted}")
                 break
 
             rows = []
@@ -87,7 +100,14 @@ def run():
                 ) VALUES (
                     {', '.join(['%s'] * len(COMMITTEE_FIELDS))}
                 )
-                ON CONFLICT (committee_id) DO NOTHING;
+                ON CONFLICT (committee_id) DO UPDATE SET
+                    {', '.join([
+                        f"{field} = EXCLUDED.{field}" 
+                        for field in COMMITTEE_FIELDS 
+                        if field != "committee_id"
+                    ])},
+                    last_updated = CURRENT_TIMESTAMP
+                WHERE { ' OR '.join([f"committees.{field} IS DISTINCT FROM EXCLUDED.{field}" for field in COMMITTEE_FIELDS if field != "committee_id"])}
             """
             execute_batch(cur, insert_sql, rows)
             conn.commit()
@@ -98,13 +118,16 @@ def run():
             time.sleep(SLEEP_SECONDS)
 
     except Exception as e:
-        logger.exception(f"Committee ingestion failed: {e}")
+        logger.error(
+            f"Committees ingester encountered an error\n"
+            f"   - Status code: {response.status_code}\n"
+            f"   - URL: {response.url}\n"
+            f"   - min_first_file_date: {params.get('min_first_file_date')}\n"
+            f"   - Response snippet: {response.text.strip()[:300]}"
+            f"   - Error: {str(e)}"
+        )
     finally:
         if conn:
             conn.close()
-
-    update_last_run("committees")
-    logger.info(f"Committee ingestion complete. Total rows inserted: {total_inserted}")
-
 if __name__ == "__main__":
     run()

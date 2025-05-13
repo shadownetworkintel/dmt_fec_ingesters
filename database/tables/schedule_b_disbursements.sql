@@ -78,7 +78,9 @@ CREATE TABLE schedule_b_disbursements (
     sub_id TEXT PRIMARY KEY,
     transaction_id TEXT,
     two_year_transaction_period INTEGER,
-    unused_recipient_id TEXT
+    unused_recipient_id TEXT,
+    ingestion_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    last_updated TIMESTAMP
 );
 
 -- Recommended indexes for efficient querying

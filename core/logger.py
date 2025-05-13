@@ -1,26 +1,31 @@
 import logging
 import os
-from datetime import datetime
+from logging.handlers import RotatingFileHandler
 
 def get_logger(name: str = "campaign_logger") -> logging.Logger:
     logger = logging.getLogger(name)
     logger.setLevel(logging.INFO)
 
     if logger.handlers:
-        return logger  # Avoid duplicate handlers if already configured
+        return logger  # Avoid duplicate handlers
 
-    # Create console handler
+    # Console handler
     console_handler = logging.StreamHandler()
     console_handler.setLevel(logging.INFO)
 
-    # Optional file handler (disabled if LOG_TO_FILE env var is not set)
+    # Optional file logging
     log_to_file = os.getenv("LOG_TO_FILE", "false").lower() == "true"
     if log_to_file:
         logs_dir = "logs"
         os.makedirs(logs_dir, exist_ok=True)
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        log_filename = os.path.join(logs_dir, f"log_{timestamp}.log")
-        file_handler = logging.FileHandler(log_filename)
+        
+        # One log file per logger name
+        log_filename = os.path.join(logs_dir, f"{name}.log")
+
+        # Rotate when file hits 5MB, keep 5 backups
+        file_handler = RotatingFileHandler(
+            log_filename, maxBytes=5_000_000, backupCount=5
+        )
         file_handler.setLevel(logging.INFO)
     else:
         file_handler = None
