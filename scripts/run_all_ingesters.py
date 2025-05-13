@@ -1,17 +1,13 @@
-import logging
-import sys
-
 from ingesters import (
-    candidates_ingester,
-    committees_ingester,
-    schedule_a_ingester,
-    schedule_b_ingester,
-    kref_scraper,
-    congress_scraper,
+    api_candidates_ingester,
+    api_committees_ingester,
+    api_schedule_a_ingester,
+    api_schedule_b_ingester,
+    api_schedule_e_ingester,
 )
-from core.logger import setup_logger
+from core.logger import get_logger
 
-logger = setup_logger("run_all")
+logger = get_logger("run_all")
 
 def run_with_logging(name, func):
     logger.info(f"Starting {name}...")
@@ -24,12 +20,12 @@ def run_with_logging(name, func):
 def main():
     logger.info("=== Starting full ingestion pipeline ===")
 
-    run_with_logging("Candidates Ingester", candidates_ingester.run)
-    run_with_logging("Committees Ingester", committees_ingester.run)
-    run_with_logging("Schedule A Ingester", schedule_a_ingester.run)
-    run_with_logging("Schedule B Ingester", schedule_b_ingester.run)
-    run_with_logging("KREF Scraper", kref_scraper.run)
-    run_with_logging("Congress Scraper", congress_scraper.run)
+    run_with_logging("Candidates Ingester", api_candidates_ingester.run)
+    run_with_logging("Committees Ingester", api_committees_ingester.run)
+    run_with_logging("Schedule A Ingester", api_schedule_a_ingester.run)
+    run_with_logging("Schedule B Ingester", api_schedule_b_ingester.run)
+    run_with_logging("Schedule B Ingester", api_schedule_e_ingester.run)
+
 
     logger.info("=== All ingestion tasks complete ===")
 
