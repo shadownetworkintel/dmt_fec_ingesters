@@ -3,12 +3,11 @@ import json
 import time
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
-import requests
-import psycopg2
 from psycopg2.extras import execute_batch
 from core.logger import get_logger
 from core.database import get_db_connection
 from core.state_tracker import get_last_run, update_last_run
+from core.fetcher import fetch_with_retries
 
 load_dotenv()
 logger = get_logger("api_schedule_a_ingester")
@@ -50,7 +49,6 @@ def run():
     page = 1
 
     try:
-        # Connect to the database
         conn = get_db_connection()
         cur = conn.cursor()
 
@@ -66,17 +64,16 @@ def run():
             min_load_date = (last_run_date - timedelta(days=DAYS_BACK)).strftime("%Y-%m-%d")
             params["min_load_date"] = min_load_date
 
-        logger.debug(f"Requesting page {page} from FEC API.")
         total_inserted = 0
         last_indexes = {}
-    
+
         while True:
-            # Remove any old pagination keys from params
+            # Clean old keys from params
             for key in list(params.keys()):
                 if key in last_indexes:
                     params.pop(key)
 
-            # Add all keys from last_indexes to params
+            # Add pagination keys
             for key, value in last_indexes.items():
                 params[key] = value
 
@@ -87,21 +84,7 @@ def run():
                 f"   - last_contribution_receipt_date: {params.get('last_contribution_receipt_date')}"
             )
 
-            response = requests.get(FEC_API_URL, params=params)
-            response.raise_for_status()
-
-            if response.status_code != 200:
-                logger.error(
-                    f"API request failed\n"
-                    f"   - Status code: {response.status_code}\n"
-                    f"   - URL: {response.url}\n"
-                    f"   - min_load_date: {params.get('min_load_date')}\n"
-                    f"   - last_index: {params.get('last_index')}\n"
-                    f"   - last_contribution_receipt_date: {params.get('last_contribution_receipt_date')}\n"
-                    f"   - Response snippet: {response.text.strip()[:300]}"
-                )
-                break
-            data = response.json()
+            data = fetch_with_retries(FEC_API_URL, params)
 
             results = data.get('results', [])
             pagination = data.get('pagination', {})
@@ -112,13 +95,9 @@ def run():
                 logger.info(f"Schedule A ingester complete. Total rows inserted: {total_inserted}")
                 break
 
-            # Prepare data for batch insertion
             rows = []
             for result in results:
-                row = []
-                for field in SCHEDULE_A_FIELDS:
-                    val = result.get(field)
-                    row.append(val)
+                row = [result.get(field) for field in SCHEDULE_A_FIELDS]
                 rows.append(tuple(row))
 
             insert_sql = f"""
@@ -144,37 +123,28 @@ def run():
                         ELSE schedule_a_contributions.last_updated
                     END
             """
-            
-            # Batch insert into the database
             execute_batch(cur, insert_sql, rows)
             conn.commit()
             logger.info(f"Inserted {len(rows)} rows from page {page}.")
             total_inserted += len(rows)
 
-            # Stop if no last_indexes (no more pages)
             if not last_indexes:
                 update_last_run("schedule_a")
                 logger.info(f"Schedule A ingestion complete. Total rows inserted: {total_inserted}")
                 break
 
             page += 1
-            time.sleep(SLEEP_SECONDS)  # Respect API rate limits
+            time.sleep(SLEEP_SECONDS)
 
     except Exception as e:
         logger.error(
             f"Schedule A ingester encountered an error\n"
-            f"   - Status code: {response.status_code}\n"
-            f"   - URL: {response.url}\n"
-            f"   - min_load_date: {params.get('min_load_date')}\n"
-            f"   - last_index: {params.get('last_index')}\n"
-            f"   - last_contribution_receipt_date: {params.get('last_contribution_receipt_date')}\n"
-            f"   - Response snippet: {response.text.strip()[:300]}"
-            f"   - Error: {str(e)}"
+            f"   - Error: {str(e)}\n"
+            f"   - Params: {json.dumps(params, indent=2)}"
         )
+        raise
     finally:
         if 'cur' in locals():
             cur.close()
         if 'conn' in locals():
             conn.close()
-if __name__ == "__main__":
-    run()

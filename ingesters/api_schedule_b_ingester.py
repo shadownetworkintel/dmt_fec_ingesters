@@ -2,12 +2,12 @@ import os
 import json
 import time
 from datetime import datetime, timedelta
-import requests
 from dotenv import load_dotenv
 from psycopg2.extras import execute_batch
 from core.logger import get_logger
 from core.database import get_db_connection
 from core.state_tracker import get_last_run, update_last_run
+from core.fetcher import fetch_with_retries
 
 load_dotenv()
 logger = get_logger("api_schedule_b_ingester")
@@ -63,12 +63,10 @@ def run():
         last_indexes = {}
 
         while True:
-            # Remove any old pagination keys from params
             for key in list(params.keys()):
                 if key in last_indexes:
                     params.pop(key)
 
-            # Add all keys from last_indexes to params
             for key, value in last_indexes.items():
                 params[key] = value
 
@@ -78,36 +76,22 @@ def run():
                 f"   - last_index: {params.get('last_index')}\n"
                 f"   - last_disbursement_date: {params.get('last_disbursement_date')}"
             )
-            response = requests.get(FEC_API_URL, params=params)
-            response.raise_for_status()
 
-            if response.status_code != 200:
-                logger.error(
-                    f"API request failed\n"
-                    f"   - Status code: {response.status_code}\n"
-                    f"   - URL: {response.url}\n"
-                    f"   - min_load_date: {params.get('min_load_date')}\n"
-                    f"   - last_index: {params.get('last_index')}\n"
-                    f"   - last_disbursement_date: {params.get('last_disbursement_date')}\n"
-                    f"   - Response snippet: {response.text.strip()[:300]}"
-                )
-                break
-            data = response.json()
+            data = fetch_with_retries(FEC_API_URL, params)
 
             results = data.get('results', [])
             pagination = data.get('pagination', {})
             last_indexes = pagination.get('last_indexes', {})
-            print(f"LAST INDEXES: {last_indexes}")
 
             if not results:
                 update_last_run("schedule_b")
                 logger.info(f"Schedule B ingester complete. Total rows inserted: {total_inserted}")
                 break
 
-            rows = []
-            for result in results:
-                row = tuple(result.get(field) for field in ALL_FIELDS)
-                rows.append(row)
+            rows = [
+                tuple(result.get(field) for field in ALL_FIELDS)
+                for result in results
+            ]
 
             insert_sql = f"""
                 INSERT INTO schedule_b_disbursements (
@@ -139,23 +123,18 @@ def run():
                 break
 
             page += 1
-            time.sleep(SLEEP_SECONDS)  # Respect API rate limits
+            time.sleep(SLEEP_SECONDS)
 
     except Exception as e:
         logger.error(
             f"Schedule B ingester encountered an error\n"
-            f"   - Status code: {response.status_code}\n"
-            f"   - URL: {response.url}\n"
-            f"   - min_load_date: {params.get('min_load_date')}\n"
-            f"   - last_index: {params.get('last_index')}\n"
-            f"   - last_disbursement_date: {params.get('last_disbursement_date')}\n"
-            f"   - Response snippet: {response.text.strip()[:300]}"
-            f"   - Error: {str(e)}"
+            f"   - Error: {str(e)}\n"
+            f"   - Params: {json.dumps(params, indent=2)}"
         )
+        raise
+
     finally:
         if 'cur' in locals():
             cur.close()
         if 'conn' in locals():
             conn.close()
-if __name__ == "__main__":
-    run()
