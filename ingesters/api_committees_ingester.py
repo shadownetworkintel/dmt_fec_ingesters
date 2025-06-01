@@ -1,4 +1,3 @@
-import requests
 import json
 import time
 from datetime import datetime
@@ -8,6 +7,7 @@ from psycopg2.extras import execute_batch
 from core.logger import get_logger
 from core.database import get_db_connection
 from core.state_tracker import get_last_run, update_last_run
+from core.fetcher import fetch_with_retries
 
 load_dotenv()
 logger = get_logger("api_committees_ingester")
@@ -59,21 +59,10 @@ def run():
 
             logger.info(
                 f"Fetching page {page} - min_first_file_date: {params.get('min_first_file_date')}"
-            )            
-            response = requests.get(FEC_API_URL, params=params)
-            response.raise_for_status()
-            
-            if response.status_code != 200:
-                logger.error(
-                    f"API request failed\n"
-                    f"   - Status code: {response.status_code}\n"
-                    f"   - URL: {response.url}\n"
-                    f"   - min_first_file_date: {params.get('min_first_file_date')}\n"
-                    f"   - Response snippet: {response.text.strip()[:300]}"
-                )
-                break
+            )
 
-            data = response.json()
+            data = fetch_with_retries(FEC_API_URL, params)
+
             results = data.get("results", [])
             if not results:
                 update_last_run("committees")
@@ -107,11 +96,14 @@ def run():
                         if field != "committee_id"
                     ])},
                     last_updated = CURRENT_TIMESTAMP
-                WHERE { ' OR '.join([f"committees.{field} IS DISTINCT FROM EXCLUDED.{field}" for field in COMMITTEE_FIELDS if field != "committee_id"])}
+                WHERE { ' OR '.join([
+                    f"committees.{field} IS DISTINCT FROM EXCLUDED.{field}"
+                    for field in COMMITTEE_FIELDS if field != "committee_id"
+                ])}
             """
             execute_batch(cur, insert_sql, rows)
             conn.commit()
-            logger.info(f"Inserted {len(rows)} rows (page {params['page']})")
+            logger.info(f"Inserted {len(rows)} rows (page {page})")
             total_inserted += len(rows)
             page += 1
 
@@ -120,14 +112,11 @@ def run():
     except Exception as e:
         logger.error(
             f"Committees ingester encountered an error\n"
-            f"   - Status code: {response.status_code}\n"
-            f"   - URL: {response.url}\n"
-            f"   - min_first_file_date: {params.get('min_first_file_date')}\n"
-            f"   - Response snippet: {response.text.strip()[:300]}"
-            f"   - Error: {str(e)}"
+            f"   - Error: {str(e)}\n"
+            f"   - Params: {json.dumps(params, indent=2)}"
         )
+        raise
+
     finally:
         if conn:
             conn.close()
-if __name__ == "__main__":
-    run()
