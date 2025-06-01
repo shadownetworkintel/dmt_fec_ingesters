@@ -3,11 +3,11 @@ import json
 import time
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
-import requests
 from psycopg2.extras import execute_batch
 from core.logger import get_logger
 from core.database import get_db_connection
 from core.state_tracker import get_last_run, update_last_run
+from core.fetcher import fetch_with_retries
 
 load_dotenv()
 logger = get_logger("api_schedule_e_ingester")
@@ -70,17 +70,15 @@ def run():
             last_run_date = datetime.fromisoformat(last_run).date()
             min_date = (last_run_date - timedelta(days=DAYS_BACK)).strftime("%Y-%m-%d")
             params["min_date"] = min_date
-            
+
         total_inserted = 0
         last_indexes = {}
 
         while True:
-            # Remove any old pagination keys from params
             for key in list(params.keys()):
                 if key in last_indexes:
                     params.pop(key)
 
-            # Add all keys from last_indexes to params
             for key, value in last_indexes.items():
                 params[key] = value
 
@@ -90,21 +88,8 @@ def run():
                 f"   - last_index: {params.get('last_index')}\n"
                 f"   - last_expenditure_date: {params.get('last_expenditure_date')}"
             )
-            response = requests.get(FEC_API_URL, params=params)
-            response.raise_for_status()
 
-            if response.status_code != 200:
-                logger.error(
-                    f"API request failed\n"
-                    f"   - Status code: {response.status_code}\n"
-                    f"   - URL: {response.url}\n"
-                    f"   - min_date: {params.get('min_date')}\n"
-                    f"   - last_index: {params.get('last_index')}\n"
-                    f"   - last_expenditure_date: {params.get('last_expenditure_date')}\n"
-                    f"   - Response snippet: {response.text.strip()[:500]}"
-                )
-                break
-            data = response.json()
+            data = fetch_with_retries(FEC_API_URL, params)
 
             results = data.get('results', [])
             pagination = data.get('pagination', {})
@@ -115,21 +100,20 @@ def run():
                 logger.info(f"Schedule E ingester complete. Total rows inserted: {total_inserted}")
                 break
 
-            # Prepare data for batch insertion (all columns, committee fields flattened)
-            rows = []
-            for result in results:
-                # Now build the row
-                row_tuple = tuple(adapt_value(result.get(field)) for field in ALL_FIELDS)
-                rows.append(row_tuple)
+            rows = [
+                tuple(adapt_value(result.get(field)) for field in ALL_FIELDS)
+                for result in results
+            ]
 
-            # Dynamically build SQL
             columns = ', '.join(f'"{field}"' for field in ALL_FIELDS)
             placeholders = ', '.join(['%s'] * len(ALL_FIELDS))
             update_set = ', '.join([
-                f'"{field}" = EXCLUDED."{field}"' for field in ALL_FIELDS if field != "sub_id"
+                f'"{field}" = EXCLUDED."{field}"'
+                for field in ALL_FIELDS if field != "sub_id"
             ])
             update_where = ' OR '.join([
-                f'schedule_e_expenditures."{field}" IS DISTINCT FROM EXCLUDED."{field}"' for field in ALL_FIELDS if field != "sub_id"
+                f'schedule_e_expenditures."{field}" IS DISTINCT FROM EXCLUDED."{field}"'
+                for field in ALL_FIELDS if field != "sub_id"
             ])
 
             insert_sql = f"""
@@ -145,9 +129,7 @@ def run():
                 WHERE {update_where}
             """
 
-            # Batch insert into the database
             execute_batch(cur, insert_sql, rows)
-
             conn.commit()
             logger.info(f"Inserted {len(rows)} rows from page {page}.")
             total_inserted += len(rows)
@@ -158,24 +140,18 @@ def run():
                 break
 
             page += 1
-            time.sleep(SLEEP_SECONDS)  # Respect API rate limits
+            time.sleep(SLEEP_SECONDS)
 
     except Exception as e:
         logger.error(
             f"Schedule E ingester encountered an error\n"
-            f"   - Status code: {response.status_code}\n"
-            f"   - URL: {response.url}\n"
-            f"   - min_date: {params.get('min_date')}\n"
-            f"   - last_index: {params.get('last_index')}\n"
-            f"   - last_expenditure_date: {params.get('last_expenditure_date')}\n"
-            f"   - Response snippet: {response.text.strip()[:300]}"
-            f"   - Error: {str(e)}"
+            f"   - Error: {str(e)}\n"
+            f"   - Params: {json.dumps(params, indent=2)}"
         )
+        raise
+
     finally:
         if 'cur' in locals():
             cur.close()
         if 'conn' in locals():
             conn.close()
-
-if __name__ == "__main__":
-    run()
