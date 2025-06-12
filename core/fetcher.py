@@ -6,7 +6,7 @@ import json
 
 logger = get_logger("fetcher")
 
-def fetch_with_retries(url, params, max_retries=5, backoff_factor=2):
+def fetch_with_retries(url, params, max_retries=10, backoff_factor=2):
     for attempt in range(max_retries):
         try:
             response = requests.get(url, params=params, timeout=30)
