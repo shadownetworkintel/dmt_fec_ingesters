@@ -18,7 +18,25 @@ def get_last_run(name):
     state = load_state()
     return state.get(name)
 
-def update_last_run(name):
+def update_last_run(name, dt=None):
     state = load_state()
-    state[name] = datetime.now().isoformat()
+    state[name] = (dt or datetime.now()).isoformat()
     save_state(state)
+
+def get_checkpoint(name):
+    state = load_state()
+    checkpoints = state.get("checkpoints", {})
+    return checkpoints.get(name)
+
+def update_checkpoint(name, checkpoint_data):
+    state = load_state()
+    if "checkpoints" not in state:
+        state["checkpoints"] = {}
+    state["checkpoints"][name] = checkpoint_data
+    save_state(state)
+
+def clear_checkpoint(name):
+    state = load_state()
+    if "checkpoints" in state and name in state["checkpoints"]:
+        del state["checkpoints"][name]
+        save_state(state)
