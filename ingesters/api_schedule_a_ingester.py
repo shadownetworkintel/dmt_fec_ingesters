@@ -1,3 +1,4 @@
+import argparse
 import os
 import json
 import time
@@ -6,7 +7,7 @@ from dotenv import load_dotenv
 from psycopg2.extras import execute_batch
 from core.logger import get_logger
 from core.database import get_db_connection
-from core.state_tracker import get_last_run, update_last_run
+from core.state_tracker import get_last_run, update_last_run, get_checkpoint, update_checkpoint, clear_checkpoint
 from core.fetcher import fetch_with_retries
 
 load_dotenv()
@@ -41,8 +42,9 @@ SCHEDULE_A_FIELDS = [
     "transaction_id", "two_year_transaction_period", "unused_contbr_id"
 ]
 
-def run():
+def run(resume_index=None, resume_date=None):
     logger.info("Starting schedule A ingester")
+    run_started_at = datetime.now()
 
     conn = None
     total_inserted = 0
@@ -67,6 +69,16 @@ def run():
         total_inserted = 0
         last_indexes = {}
 
+        #CLI resume overrides checkpoint
+        if resume_index and resume_date:
+            logger.info(f"Resuming from last_index={resume_index} and last_contribution_receipt_date={resume_date}")
+            last_indexes["last_index"] = resume_index
+            last_indexes["last_contribution_receipt_date"] = resume_date
+        else:
+            checkpoint = get_checkpoint("schedule_a")
+            if checkpoint:
+                logger.info(f"Auto-resuming from checkpoint: {checkpoint}")
+                last_indexes = checkpoint
         while True:
             # Clean old keys from params
             for key in list(params.keys()):
@@ -91,7 +103,8 @@ def run():
             last_indexes = pagination.get('last_indexes', {})
 
             if not results:
-                update_last_run("schedule_a")
+                update_last_run("schedule_a", run_started_at)
+                clear_checkpoint("schedule_a")
                 logger.info(f"Schedule A ingester complete. Total rows inserted: {total_inserted}")
                 break
 
@@ -129,9 +142,12 @@ def run():
             total_inserted += len(rows)
 
             if not last_indexes:
-                update_last_run("schedule_a")
+                update_last_run("schedule_a", run_started_at)
+                clear_checkpoint("schedule_a")
                 logger.info(f"Schedule A ingestion complete. Total rows inserted: {total_inserted}")
                 break
+            else:
+                update_checkpoint("schedule_a", last_indexes)
 
             page += 1
             time.sleep(SLEEP_SECONDS)
