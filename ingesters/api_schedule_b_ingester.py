@@ -1,3 +1,4 @@
+import argparse
 import os
 import json
 import time
@@ -6,8 +7,9 @@ from dotenv import load_dotenv
 from psycopg2.extras import execute_batch
 from core.logger import get_logger
 from core.database import get_db_connection
-from core.state_tracker import get_last_run, update_last_run
+from core.state_tracker import get_last_run, update_last_run, get_checkpoint, update_checkpoint, clear_checkpoint
 from core.fetcher import fetch_with_retries
+from core.alerting import send_slack_alert
 
 load_dotenv()
 logger = get_logger("api_schedule_b_ingester")
@@ -16,7 +18,7 @@ FEC_API_KEY = os.getenv("FEC_API_KEY")
 FEC_API_URL = "https://api.open.fec.gov/v1/schedules/schedule_b/"
 PAGE_SIZE = 100
 SLEEP_SECONDS = 3.7
-DAYS_BACK = 2
+DAYS_BACK = 0
 SORT_COLUMN = '-disbursement_date'
 
 ALL_FIELDS = [
@@ -37,8 +39,15 @@ ALL_FIELDS = [
     "sub_id", "transaction_id", "two_year_transaction_period", "unused_recipient_id"
 ]
 
-def run():    
+# Known bad indexes causing FEC server timeouts
+BROKEN_LAST_INDEXES = {
+    "1022620190037443452",  
+    "1021420250265768489",
+}
+
+def run(resume_index=None, resume_date=None):  
     logger.info("Starting schedule B ingester")
+    run_started_at = datetime.now()
 
     conn = None
     total_inserted = 0
@@ -62,6 +71,18 @@ def run():
         total_inserted = 0
         last_indexes = {}
 
+        #CLI resume overrides checkpoint
+        if resume_index and resume_date:
+            logger.info(f"Resuming from last_index={resume_index} and last_disbursement_date={resume_date}")
+            last_indexes["last_index"] = resume_index
+            last_indexes["last_disbursement_date"] = resume_date
+            params["sort_null_only"] = True  # Required to enable keyset pagination resume
+        else:
+            checkpoint = get_checkpoint("schedule_b")
+            if checkpoint:
+                logger.info(f"Auto-resuming from checkpoint: {checkpoint}")
+                last_indexes = checkpoint
+                params["sort_null_only"] = True
         while True:
             for key in list(params.keys()):
                 if key in last_indexes:
@@ -69,6 +90,12 @@ def run():
 
             for key, value in last_indexes.items():
                 params[key] = value
+
+            last_index = last_indexes.get("last_index")
+
+            if last_index in BROKEN_LAST_INDEXES:
+                logger.warning(f"Reducing page size to skip through bad last_index {last_index}")
+                params["per_page"] = 10  # Drop from 100 to 10 just for this call
 
             logger.info(
                 f"Fetching page {page}\n"
@@ -84,7 +111,8 @@ def run():
             last_indexes = pagination.get('last_indexes', {})
 
             if not results:
-                update_last_run("schedule_b")
+                update_last_run("schedule_b", run_started_at)
+                clear_checkpoint("schedule_b")
                 logger.info(f"Schedule B ingester complete. Total rows inserted: {total_inserted}")
                 break
 
@@ -118,9 +146,12 @@ def run():
             total_inserted += len(rows)
 
             if not last_indexes:
-                update_last_run("schedule_b")
+                update_last_run("schedule_b", run_started_at)
+                clear_checkpoint("schedule_b")
                 logger.info(f"Schedule B ingester complete. Total rows inserted: {total_inserted}")
                 break
+            else:
+                update_checkpoint("schedule_b", last_indexes)
 
             page += 1
             time.sleep(SLEEP_SECONDS)
@@ -131,6 +162,11 @@ def run():
             f"   - Error: {str(e)}\n"
             f"   - Params: {json.dumps(params, indent=2)}"
         )
+        send_slack_alert(
+            f"❌ *Schedule B Ingester FAILED*\n"
+            f"> Error: `{str(e)}`\n"
+            f"> Params: ```{json.dumps(params, indent=2)}```"
+        )
         raise
 
     finally:
@@ -138,3 +174,10 @@ def run():
             cur.close()
         if 'conn' in locals():
             conn.close()
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Run Schedule B ingester with optional resume index.")
+    parser.add_argument("--resume-index", type=str, help="The last_index to resume from")
+    parser.add_argument("--resume-date", type=str, help="The last_disbursement_date to resume from (YYYY-MM-DD)")
+    args = parser.parse_args()
+    run(resume_index=args.resume_index, resume_date=args.resume_date)
