@@ -8,6 +8,7 @@ from core.logger import get_logger
 from core.database import get_db_connection
 from core.state_tracker import get_last_run, update_last_run
 from core.fetcher import fetch_with_retries
+from core.alerting import send_slack_alert
 
 load_dotenv()
 logger = get_logger("api_candidates_ingester")
@@ -99,6 +100,11 @@ def run():
             f"Candidates ingester encountered an error\n"
             f"   - Error: {str(e)}\n"
             f"   - Params: {json.dumps(params, indent=2)}"
+        )
+        send_slack_alert(
+            f"❌ *Candidates Ingester FAILED*\n"
+            f"> Error: `{str(e)}`\n"
+            f"> Params: ```{json.dumps(params, indent=2)}```"
         )
         raise
 
