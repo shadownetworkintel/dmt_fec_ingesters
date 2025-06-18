@@ -9,6 +9,7 @@ from core.logger import get_logger
 from core.database import get_db_connection
 from core.state_tracker import get_last_run, update_last_run, get_checkpoint, update_checkpoint, clear_checkpoint
 from core.fetcher import fetch_with_retries
+from core.alerting import send_slack_alert
 
 load_dotenv()
 logger = get_logger("api_schedule_a_ingester")
@@ -157,6 +158,11 @@ def run(resume_index=None, resume_date=None):
             f"Schedule A ingester encountered an error\n"
             f"   - Error: {str(e)}\n"
             f"   - Params: {json.dumps(params, indent=2)}"
+        )
+        send_slack_alert(
+            f"❌ *Schedule A Ingester FAILED*\n"
+            f"> Error: `{str(e)}`\n"
+            f"> Params: ```{json.dumps(params, indent=2)}```"
         )
         raise
     finally:
