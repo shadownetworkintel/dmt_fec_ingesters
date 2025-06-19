@@ -20,6 +20,7 @@ PAGE_SIZE = 100
 SLEEP_SECONDS = 3.7
 DAYS_BACK = 0
 SORT_COLUMN = '-disbursement_date'
+TWO_YEAR_TRANSACTION_PERIOD = 2026
 
 ALL_FIELDS = [
     "amendment_indicator", "amendment_indicator_desc", "back_reference_schedule_name", "back_reference_transaction_id",
@@ -61,7 +62,8 @@ def run(resume_index=None, resume_date=None):
         params = {
             "api_key": FEC_API_KEY,
             "per_page": PAGE_SIZE,
-            "sort": SORT_COLUMN
+            "sort": SORT_COLUMN,
+            "two_year_transaction_period": TWO_YEAR_TRANSACTION_PERIOD,
         }
         if last_run:
             last_run_date = datetime.fromisoformat(last_run).date()
