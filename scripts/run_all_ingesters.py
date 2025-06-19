@@ -24,7 +24,7 @@ def main():
     run_with_logging("Committees Ingester", api_committees_ingester.run)
     run_with_logging("Schedule A Ingester", api_schedule_a_ingester.run)
     run_with_logging("Schedule B Ingester", api_schedule_b_ingester.run)
-    run_with_logging("Schedule B Ingester", api_schedule_e_ingester.run)
+    run_with_logging("Schedule E Ingester", api_schedule_e_ingester.run)
 
 
     logger.info("=== All ingestion tasks complete ===")
