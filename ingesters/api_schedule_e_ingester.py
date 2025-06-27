@@ -1,16 +1,24 @@
+import argparse
 import os
 import json
 import time
 from datetime import datetime, timedelta
-from dotenv import load_dotenv
 from psycopg2.extras import execute_batch
 from core.logger import get_logger
 from core.database import get_db_connection
-from core.state_tracker import get_last_run, update_last_run
+from core.state_tracker import (
+    get_last_run,
+    update_last_run,
+    get_checkpoint,
+    update_checkpoint,
+    clear_checkpoint,
+    get_committee_last_run,
+    update_committee_last_run,
+)
 from core.fetcher import fetch_with_retries
 from core.alerting import send_slack_alert
+from core.utils import load_committee_list
 
-load_dotenv()
 logger = get_logger("api_schedule_e_ingester")
 
 FEC_API_KEY = os.getenv("FEC_API_KEY")
@@ -50,8 +58,9 @@ def adapt_value(val):
         return json.dumps(val)
     return val
 
-def run():
-    logger.info("Starting schedule E ingester")
+def run(committee_id=None, resume_index=None, resume_date=None):
+    logger.info(f"Starting schedule E ingester {'for ALL committees' if not committee_id else f'for {committee_id}'}")
+    run_started_at = datetime.now()
 
     conn = None
     total_inserted = 0
@@ -61,12 +70,17 @@ def run():
         conn = get_db_connection()
         cur = conn.cursor()
 
-        last_run = get_last_run("schedule_e")
         params = {
             "api_key": FEC_API_KEY,
             "per_page": PAGE_SIZE,
             "sort": SORT_COLUMN,
         }
+        if committee_id:
+            params["committee_id"] = committee_id
+            last_run = get_committee_last_run("schedule_e", committee_id)
+        else:
+            last_run = get_last_run("schedule_e")
+
         if last_run:
             last_run_date = datetime.fromisoformat(last_run).date()
             min_date = (last_run_date - timedelta(days=DAYS_BACK)).strftime("%Y-%m-%d")
@@ -75,11 +89,26 @@ def run():
         total_inserted = 0
         last_indexes = {}
 
+        #Resume functionality ONLY for "all" committees run
+        #CLI resume overrides checkpoint
+        
+        if not committee_id and resume_index and resume_date:
+            logger.info(f"Resuming from last_index={resume_index} and last_expenditure_date={resume_date}")
+            last_indexes["last_index"] = resume_index
+            last_indexes["last_expenditure_date"] = resume_date
+        elif not committee_id:
+            checkpoint = get_checkpoint("schedule_e")
+            if checkpoint:
+                logger.info(f"Auto-resuming from checkpoint: {checkpoint}")
+                last_indexes = checkpoint
+
         while True:
+            # Clean old keys from params
             for key in list(params.keys()):
                 if key in last_indexes:
                     params.pop(key)
 
+            # Add pagination keys
             for key, value in last_indexes.items():
                 params[key] = value
 
@@ -91,13 +120,16 @@ def run():
             )
 
             data = fetch_with_retries(FEC_API_URL, params)
-
             results = data.get('results', [])
             pagination = data.get('pagination', {})
             last_indexes = pagination.get('last_indexes', {})
 
             if not results:
-                update_last_run("schedule_e")
+                if committee_id:
+                    update_last_run("schedule_e")
+                else:
+                    update_last_run("schedule_e", run_started_at)
+                    clear_checkpoint("schedule_e")
                 logger.info(f"Schedule E ingester complete. Total rows inserted: {total_inserted}")
                 break
 
@@ -136,9 +168,15 @@ def run():
             total_inserted += len(rows)
 
             if not last_indexes:
-                update_last_run("schedule_e")
+                if committee_id:
+                    update_committee_last_run("schedule_e", committee_id)
+                else:
+                    update_last_run("schedule_e", run_started_at)
+                    clear_checkpoint("schedule_e")
                 logger.info(f"Schedule E ingester complete. Total rows inserted: {total_inserted}")
                 break
+            elif not committee_id:
+                update_checkpoint("schedule_e", last_indexes)
 
             page += 1
             time.sleep(SLEEP_SECONDS)
@@ -161,3 +199,19 @@ def run():
             cur.close()
         if 'conn' in locals():
             conn.close()
+
+def main(args=None):
+    parser = argparse.ArgumentParser(description="Run Schedule E ingester with optional resume index.")
+    parser.add_argument("--resume-index", type=str, help="The last_index to resume from")
+    parser.add_argument("--resume-date", type=str, help="The last_disbursement_date to resume from (YYYY-MM-DD)")
+    args = parser.parse_args()
+    
+    committee_list = load_committee_list()
+    if not committee_list:
+        run(resume_index=args.resume_index, resume_date=args.resume_date)
+    else:
+        for committee_id in committee_list:
+            run(committee_id=committee_id)
+
+if __name__ == "__main__":
+    main()
