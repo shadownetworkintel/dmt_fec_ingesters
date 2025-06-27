@@ -2,7 +2,6 @@ import os
 import json
 import time
 from datetime import datetime
-from dotenv import load_dotenv
 from psycopg2.extras import execute_batch
 from core.logger import get_logger
 from core.database import get_db_connection
@@ -10,7 +9,6 @@ from core.state_tracker import get_last_run, update_last_run
 from core.fetcher import fetch_with_retries
 from core.alerting import send_slack_alert
 
-load_dotenv()
 logger = get_logger("api_candidates_ingester")
 
 FEC_API_KEY = os.getenv("FEC_API_KEY")
