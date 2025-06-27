@@ -3,3 +3,6 @@ ingest_state.json
 __pycache__/
 .env
 *.log
+.env.dev
+.env.prod
+/core/__pycache__
