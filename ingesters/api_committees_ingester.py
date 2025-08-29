@@ -4,12 +4,12 @@ from datetime import datetime
 import os
 from psycopg2.extras import execute_batch
 from core.logger import get_logger
-from core.database import get_db_connection
+from core.database import db_cursor
 from core.state_tracker import get_last_run, update_last_run
 from core.fetcher import fetch_with_retries
 from core.alerting import send_slack_alert
 
-logger = get_logger("api_committees_ingester")
+logger = get_logger()
 
 FEC_API_KEY = os.getenv("FEC_API_KEY")
 FEC_API_URL = "https://api.open.fec.gov/v1/committees/"
@@ -34,14 +34,11 @@ COMMITTEE_FIELDS = [
 def run():
     logger.info("Starting committees ingester")
 
-    conn = None
     total_inserted = 0
     page = 1
+    params = {}
 
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor()
-        
+    try:        
         last_run = get_last_run("committees")
 
         params = {
@@ -100,12 +97,12 @@ def run():
                     for field in COMMITTEE_FIELDS if field != "committee_id"
                 ])}
             """
-            execute_batch(cur, insert_sql, rows)
-            conn.commit()
+            with db_cursor() as cur:
+                execute_batch(cur, insert_sql, rows)
+
             logger.info(f"Inserted {len(rows)} rows (page {page})")
             total_inserted += len(rows)
             page += 1
-
             time.sleep(SLEEP_SECONDS)
 
     except Exception as e:
@@ -122,5 +119,4 @@ def run():
         raise
 
     finally:
-        if conn:
-            conn.close()
+        pass
