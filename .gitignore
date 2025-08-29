@@ -1,8 +1,10 @@
 logs/
 ingest_state.json
+/core/__pycache__/
 __pycache__/
 .env
 *.log
 .env.dev
 .env.prod
-/core/__pycache__
+.env.staging
+
