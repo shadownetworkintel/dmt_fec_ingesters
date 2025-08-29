@@ -2,25 +2,33 @@ import logging
 import os
 from logging.handlers import RotatingFileHandler
 
-def get_logger(name: str = "campaign_logger") -> logging.Logger:
+# Keep track of configured loggers
+_configured_loggers = set()
+
+def get_logger(name: str = "ingesters_logger") -> logging.Logger:
     logger = logging.getLogger(name)
+    
+    # If this logger is already configured, return it
+    if name in _configured_loggers:
+        return logger
+        
     logger.setLevel(logging.INFO)
-
-    if logger.handlers:
-        return logger  # Avoid duplicate handlers
-
+    
+    # Clear any existing handlers for this logger
+    logger.handlers.clear()
+    
     # Console handler
     console_handler = logging.StreamHandler()
     console_handler.setLevel(logging.INFO)
 
     # Optional file logging
     log_to_file = os.getenv("LOG_TO_FILE", "false").lower() == "true"
+    
     if log_to_file:
         logs_dir = "logs"
         os.makedirs(logs_dir, exist_ok=True)
         
-        # One log file per logger name
-        log_filename = os.path.join(logs_dir, f"{name}.log")
+        log_filename = os.path.join(logs_dir, "ingestion.log")
 
         # Rotate when file hits 5MB, keep 5 backups
         file_handler = RotatingFileHandler(
@@ -36,9 +44,15 @@ def get_logger(name: str = "campaign_logger") -> logging.Logger:
     if file_handler:
         file_handler.setFormatter(formatter)
 
-    # Add handlers
+    # Add handlers to THIS logger (not root logger)
     logger.addHandler(console_handler)
     if file_handler:
         logger.addHandler(file_handler)
+    
+    # Prevent propagation to root logger to avoid duplicate messages
+    logger.propagate = False
+    
+    # Mark this logger as configured
+    _configured_loggers.add(name)
 
     return logger

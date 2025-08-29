@@ -30,7 +30,7 @@ CREATE TABLE candidates (
     ingestion_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     last_updated TIMESTAMP
 );
-
+CREATE INDEX idx_candidates_candidate_id ON candidates (candidate_id);
 CREATE INDEX idx_candidates_name ON candidates (name);
 CREATE INDEX idx_candidates_state ON candidates (state);
 CREATE INDEX idx_candidates_party ON candidates (party);

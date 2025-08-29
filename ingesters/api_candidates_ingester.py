@@ -4,12 +4,12 @@ import time
 from datetime import datetime
 from psycopg2.extras import execute_batch
 from core.logger import get_logger
-from core.database import get_db_connection
+from core.database import db_cursor
 from core.state_tracker import get_last_run, update_last_run
 from core.fetcher import fetch_with_retries
 from core.alerting import send_slack_alert
 
-logger = get_logger("api_candidates_ingester")
+logger = get_logger()
 
 FEC_API_KEY = os.getenv("FEC_API_KEY")
 FEC_API_URL = "https://api.open.fec.gov/v1/candidates/"
@@ -28,14 +28,11 @@ CANDIDATE_FIELDS = [
 def run():
     logger.info("Starting candidates ingester")
 
-    conn = None
     total_inserted = 0
     page = 1
+    params = {}
 
     try:
-        conn = get_db_connection()
-        cur = conn.cursor()
-
         last_run = get_last_run("candidates")
 
         params = {
@@ -85,9 +82,9 @@ def run():
                     f"candidates.{field} IS DISTINCT FROM EXCLUDED.{field}" for field in CANDIDATE_FIELDS if field != "candidate_id"
                 ])}
             """
+            with db_cursor() as cur:
+                execute_batch(cur, insert_sql, rows)
 
-            execute_batch(cur, insert_sql, rows)
-            conn.commit()
             logger.info(f"Inserted {len(rows)} rows (page {page})")
             total_inserted += len(rows)
             page += 1
@@ -107,5 +104,4 @@ def run():
         raise
 
     finally:
-        if conn:
-            conn.close()
+        pass
