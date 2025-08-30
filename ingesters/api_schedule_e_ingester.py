@@ -5,21 +5,20 @@ import time
 from datetime import datetime, timedelta
 from psycopg2.extras import execute_batch
 from core.logger import get_logger
-from core.database import get_db_connection
+from core.database import db_cursor
 from core.state_tracker import (
     get_last_run,
     update_last_run,
     get_checkpoint,
     update_checkpoint,
     clear_checkpoint,
-    get_committee_last_run,
-    update_committee_last_run,
+    get_checkpoint_started_at,
 )
 from core.fetcher import fetch_with_retries
 from core.alerting import send_slack_alert
 from core.utils import load_committee_list
 
-logger = get_logger("api_schedule_e_ingester")
+logger = get_logger()
 
 FEC_API_KEY = os.getenv("FEC_API_KEY")
 FEC_API_URL = "https://api.open.fec.gov/v1/schedules/schedule_e/"
@@ -62,14 +61,11 @@ def run(committee_id=None, resume_index=None, resume_date=None):
     logger.info(f"Starting schedule E ingester {'for ALL committees' if not committee_id else f'for {committee_id}'}")
     run_started_at = datetime.now()
 
-    conn = None
     total_inserted = 0
     page = 1
+    params = {}
 
     try:
-        conn = get_db_connection()
-        cur = conn.cursor()
-
         params = {
             "api_key": FEC_API_KEY,
             "per_page": PAGE_SIZE,
@@ -77,9 +73,11 @@ def run(committee_id=None, resume_index=None, resume_date=None):
         }
         if committee_id:
             params["committee_id"] = committee_id
-            last_run = get_committee_last_run("schedule_e", committee_id)
+            # Use the new target-based state tracking
+            last_run = get_last_run("schedule_e", target=committee_id)
         else:
-            last_run = get_last_run("schedule_e")
+            # "All committees" mode
+            last_run = get_last_run("schedule_e", target="all")
 
         if last_run:
             last_run_date = datetime.fromisoformat(last_run).date()
@@ -97,7 +95,7 @@ def run(committee_id=None, resume_index=None, resume_date=None):
             last_indexes["last_index"] = resume_index
             last_indexes["last_expenditure_date"] = resume_date
         elif not committee_id:
-            checkpoint = get_checkpoint("schedule_e")
+            checkpoint = get_checkpoint("schedule_e", target="all")
             if checkpoint:
                 logger.info(f"Auto-resuming from checkpoint: {checkpoint}")
                 last_indexes = checkpoint
@@ -126,10 +124,12 @@ def run(committee_id=None, resume_index=None, resume_date=None):
 
             if not results:
                 if committee_id:
-                    update_last_run("schedule_e")
+                    # Update for specific committee
+                    update_last_run("schedule_e", run_started_at, target=committee_id)
                 else:
-                    update_last_run("schedule_e", run_started_at)
-                    clear_checkpoint("schedule_e")
+                    # Update for "all committees" mode
+                    update_last_run("schedule_e", run_started_at, target="all")
+                    clear_checkpoint("schedule_e", target="all")
                 logger.info(f"Schedule E ingester complete. Total rows inserted: {total_inserted}")
                 break
 
@@ -161,22 +161,24 @@ def run(committee_id=None, resume_index=None, resume_date=None):
                     last_updated = CASE WHEN {update_where} THEN NOW() ELSE schedule_e_expenditures.last_updated END
                 WHERE {update_where}
             """
+            with db_cursor() as cur:
+                execute_batch(cur, insert_sql, rows)
 
-            execute_batch(cur, insert_sql, rows)
-            conn.commit()
             logger.info(f"Inserted {len(rows)} rows from page {page}.")
             total_inserted += len(rows)
 
             if not last_indexes:
                 if committee_id:
-                    update_committee_last_run("schedule_e", committee_id)
+                    # Update for specific committee
+                    update_last_run("schedule_e", run_started_at, target=committee_id)
                 else:
-                    update_last_run("schedule_e", run_started_at)
-                    clear_checkpoint("schedule_e")
+                    # Update for "all committees" mode
+                    update_last_run("schedule_e", run_started_at, target="all")
+                    clear_checkpoint("schedule_e", target="all")
                 logger.info(f"Schedule E ingester complete. Total rows inserted: {total_inserted}")
                 break
             elif not committee_id:
-                update_checkpoint("schedule_e", last_indexes)
+                update_checkpoint("schedule_e", last_indexes, target="all")
 
             page += 1
             time.sleep(SLEEP_SECONDS)
@@ -188,17 +190,14 @@ def run(committee_id=None, resume_index=None, resume_date=None):
             f"   - Params: {json.dumps(params, indent=2)}"
         )
         send_slack_alert(
-            f"❌ *Schedule B Ingester FAILED*\n"
+            f"❌ *Schedule E Ingester FAILED*\n"
             f"> Error: `{str(e)}`\n"
             f"> Params: ```{json.dumps(params, indent=2)}```"
         )
         raise
 
     finally:
-        if 'cur' in locals():
-            cur.close()
-        if 'conn' in locals():
-            conn.close()
+        pass
 
 def main(args=None):
     parser = argparse.ArgumentParser(description="Run Schedule E ingester with optional resume index.")
