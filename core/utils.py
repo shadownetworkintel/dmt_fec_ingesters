@@ -1,10 +1,6 @@
 from typing import List, Optional
 from core.database import db_cursor
 import logging
-import yaml
-import os
-
-CONFIG_FILE = "configs/committee_ingest_targets.yaml"
 
 logger = logging.getLogger()
 
