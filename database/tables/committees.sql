@@ -60,7 +60,7 @@ CREATE TABLE committees (
     ingestion_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     last_updated TIMESTAMP
 );
-
+CREATE INDEX idx_committees_committee_id ON committees (committee_id);
 CREATE INDEX idx_committees_name ON committees (name);
 CREATE INDEX idx_committees_state ON committees (state);
 CREATE INDEX idx_committees_party ON committees (party);

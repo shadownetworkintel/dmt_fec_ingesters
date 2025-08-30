@@ -1,55 +1,97 @@
-import json
-import os
+from typing import Optional, Dict, Any
 from datetime import datetime
+from psycopg2.extras import Json
+from core.database import db_cursor
+import logging
 
-STATE_FILE = "ingest_state.json"
+logger = logging.getLogger(__name__)
 
-def load_state():
-    if os.path.exists(STATE_FILE):
-        with open(STATE_FILE, "r") as f:
-            return json.load(f)
-    return {}
+def get_last_run(name: str, target: str = "all") -> Optional[str]:
+    logger.info(f"Getting last run for: {name}, target: {target}")
+    with db_cursor() as cur:
+        cur.execute("select last_run from ops.ingest_state where name=%s and target=%s", (name, target))
+        row = cur.fetchone()
+        result = row[0].isoformat() if row and row[0] else None
+        logger.info(f"Last run for {name}/{target}: {result}")
+        return result
 
-def save_state(state):
-    with open(STATE_FILE, "w") as f:
-        json.dump(state, f, indent=2)
+def update_last_run(name: str, dt: Optional[datetime] = None, target: str = "all") -> None:
+    logger.info(f"Updating last run for: {name}, target: {target}, dt: {dt}")
+    with db_cursor() as cur:
+        cur.execute("""
+            insert into ops.ingest_state(name, target, last_run, updated_at)
+            values (%s, %s, COALESCE(%s, now()), now())
+            on conflict (name, target) do update
+              set last_run = EXCLUDED.last_run,
+                  updated_at = now()
+        """, (name, target, dt))
+        logger.info(f"Successfully updated last run for {name}/{target}")
 
-def get_last_run(name):
-    state = load_state()
-    return state.get(name)
+def get_checkpoint(name: str, target: str = "all") -> Optional[Dict[str, Any]]:
+    logger.info(f"Getting checkpoint for: {name}, target: {target}")
+    with db_cursor() as cur:
+        cur.execute("select data from ops.ingest_checkpoints where name=%s and target=%s", (name, target))
+        row = cur.fetchone()
+        result = row[0] if row else None
+        logger.info(f"Checkpoint for {name}/{target}: {result}")
+        return result
 
-def update_last_run(name, dt=None):
-    state = load_state()
-    state[name] = (dt or datetime.now()).isoformat()
-    save_state(state)
+def update_checkpoint(name: str, checkpoint_data: Dict[str, Any], target: str = "all", started_at: Optional[datetime] = None) -> None:
+    # Add started_at to the checkpoint data
+    if started_at:
+        checkpoint_data = checkpoint_data.copy()  # Don't modify the original
+        checkpoint_data["started_at"] = started_at.isoformat()
+    
+    logger.info(f"Updating checkpoint for: {name}, target: {target}, data: {checkpoint_data}")
+    with db_cursor() as cur:
+        cur.execute("""
+            insert into ops.ingest_checkpoints(name, target, data, updated_at)
+            values (%s, %s, %s, now())
+            on conflict (name, target) do update
+              set data = EXCLUDED.data,
+                  updated_at = now()
+        """, (name, target, Json(checkpoint_data)))
+        logger.info(f"Successfully updated checkpoint for {name}/{target}")
 
-def get_checkpoint(name):
-    state = load_state()
-    checkpoints = state.get("checkpoints", {})
-    return checkpoints.get(name)
+def clear_checkpoint(name: str, target: str = "all") -> None:
+    logger.info(f"Clearing checkpoint for: {name}, target: {target}")
+    with db_cursor() as cur:
+        cur.execute("delete from ops.ingest_checkpoints where name=%s and target=%s", (name, target))
+        rows_deleted = cur.rowcount
+        logger.info(f"Cleared checkpoint for {name}/{target}, rows deleted: {rows_deleted}")
 
-def update_checkpoint(name, checkpoint_data):
-    state = load_state()
-    if "checkpoints" not in state:
-        state["checkpoints"] = {}
-    state["checkpoints"][name] = checkpoint_data
-    save_state(state)
+def get_checkpoint_started_at(name: str, target: str = "all") -> Optional[datetime]:
+    """Get the started_at timestamp from a checkpoint, if it exists."""
+    checkpoint = get_checkpoint(name, target)
+    if checkpoint and "started_at" in checkpoint:
+        try:
+            return datetime.fromisoformat(checkpoint["started_at"])
+        except (ValueError, TypeError) as e:
+            logger.warning(f"Invalid started_at in checkpoint for {name}/{target}: {e}")
+    return None
 
-def clear_checkpoint(name):
-    state = load_state()
-    if "checkpoints" in state and name in state["checkpoints"]:
-        del state["checkpoints"][name]
-        save_state(state)
-        
-def get_committee_last_run(schedule_name, committee_id):
-    state = load_state()
-    key = f"{schedule_name}_committees"
-    return state.get(key, {}).get(committee_id)
+# Keep the old committee-specific functions for backward compatibility
+def get_committee_last_run(schedule_name: str, committee_id: str) -> Optional[str]:
+    logger.info(f"Getting committee last run for: {schedule_name}, {committee_id}")
+    with db_cursor() as cur:
+        cur.execute("""
+            select last_run
+              from ops.committee_run_state
+             where schedule_name=%s and committee_id=%s
+        """, (schedule_name, committee_id))
+        row = cur.fetchone()
+        result = row[0].isoformat() if row and row[0] else None
+        logger.info(f"Committee last run for {schedule_name}/{committee_id}: {result}")
+        return result
 
-def update_committee_last_run(schedule_name, committee_id, dt=None):
-    state = load_state()
-    key = f"{schedule_name}_committees"
-    if key not in state:
-        state[key] = {}
-    state[key][committee_id] = (dt or datetime.now()).isoformat()
-    save_state(state)
+def update_committee_last_run(schedule_name: str, committee_id: str, dt: Optional[datetime] = None) -> None:
+    logger.info(f"Updating committee last run for: {schedule_name}, {committee_id}, dt: {dt}")
+    with db_cursor() as cur:
+        cur.execute("""
+            insert into ops.committee_run_state(schedule_name, committee_id, last_run, updated_at)
+            values (%s, %s, COALESCE(%s, now()), now())
+            on conflict (schedule_name, committee_id) do update
+              set last_run = EXCLUDED.last_run,
+                  updated_at = now()
+        """, (schedule_name, committee_id, dt))
+        logger.info(f"Successfully updated committee last run for {schedule_name}/{committee_id}")
