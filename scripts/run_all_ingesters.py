@@ -1,11 +1,4 @@
-from ingesters import (
-    api_candidates_ingester,
-    api_committees_ingester,
-    api_schedule_a_ingester,
-    api_schedule_b_ingester,
-    api_schedule_e_ingester,
-)
-from core.logger import get_logger
+
 from dotenv import load_dotenv
 import os
 
@@ -19,7 +12,17 @@ env_file = f".env.{env_mode}"
 # Load the environment-specific overrides (e.g., .env.dev or .env.prod)
 load_dotenv(dotenv_path=env_file, override=True)
 
-logger = get_logger("run_all")
+# Import all ingesters *AFTER* environment is loaded
+from ingesters import (
+    api_candidates_ingester,
+    api_committees_ingester,
+    api_schedule_a_ingester,
+    api_schedule_b_ingester,
+    api_schedule_e_ingester,
+)
+from core.logger import get_logger
+
+logger = get_logger()
 
 def run_with_logging(name, func):
     logger.info(f"Starting {name}...")
@@ -37,7 +40,6 @@ def main():
     run_with_logging("Schedule A Ingester", api_schedule_a_ingester.main)
     run_with_logging("Schedule B Ingester", api_schedule_b_ingester.main)
     run_with_logging("Schedule E Ingester", api_schedule_e_ingester.main)
-
 
     logger.info("=== All ingestion tasks complete ===")
 
