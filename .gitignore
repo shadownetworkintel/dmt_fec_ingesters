@@ -1,8 +1,33 @@
-logs/
-ingest_state.json
-__pycache__/
+# Environment files
 .env
-*.log
+.env.*
+.env.local
 .env.dev
 .env.prod
-/core/__pycache__
+.env.staging
+
+# Secrets and keys
+*.key
+*.pem
+*.p12
+
+# OS and IDE files
+.DS_Store
+Thumbs.db
+.vscode/settings.json
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+.venv/
+venv/
+env/
+
+# Logs
+logs/
+*.log
+
+ingest_state.json

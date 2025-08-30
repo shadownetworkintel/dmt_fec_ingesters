@@ -82,3 +82,19 @@ CREATE TABLE schedule_a_contributions (
     ingestion_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     last_updated TIMESTAMP
 );
+
+-- Index to speed up queries filtered by committee_id
+CREATE INDEX idx_schedule_a_committee_id
+ON schedule_a_contributions (committee_id);
+
+-- Index for filtering by election cycle period
+CREATE INDEX idx_schedule_a_two_year_period
+ON schedule_a_contributions (two_year_transaction_period);
+
+-- Index for filtering/sorting by contribution amount
+CREATE INDEX idx_schedule_a_amount
+ON schedule_a_contributions (contribution_receipt_amount);
+
+-- Index for date-based filtering or sorting
+CREATE INDEX idx_schedule_a_date
+ON schedule_a_contributions (contribution_receipt_date);
