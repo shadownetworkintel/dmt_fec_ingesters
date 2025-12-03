@@ -54,7 +54,7 @@ BROKEN_LAST_INDEXES = {
 
 def run(committee_id=None, resume_index=None, resume_date=None):  
     logger.info(f"Starting schedule B ingester {'for ALL committees' if not committee_id else f'for {committee_id}'}")
-    run_started_at = datetime.now()
+    run_started_at = datetime.now(timezone.utc)
 
     total_inserted = 0
     page = 1
