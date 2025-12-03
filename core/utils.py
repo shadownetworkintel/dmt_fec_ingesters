@@ -1,6 +1,9 @@
 from typing import List, Optional
 from core.database import db_cursor
 import logging
+import os
+import psycopg2
+import psycopg2.extras
 
 logger = logging.getLogger()
 
@@ -114,3 +117,23 @@ def enable_all_committees_mode() -> bool:
     except Exception as e:
         logger.error(f"Error enabling all committees mode: {e}")
         return False
+
+def get_committees_by_candidate_id(candidate_id):
+    """Return a list of committees where candidate_ids contains the given candidate_id."""
+    conn = psycopg2.connect(
+        dbname=os.getenv("DB_NAME"),
+        user=os.getenv("DB_USER"),
+        password=os.getenv("DB_PASSWORD"),
+        host=os.getenv("DB_HOST"),
+        port=os.getenv("DB_PORT"),
+    )
+    try:
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+            cur.execute("""
+                SELECT committee_id, cm.name as committee_name, cm.candidate_ids
+                FROM committees cm
+                WHERE candidate_ids @> %s::jsonb
+            """, (f'["{candidate_id}"]',))
+            return [dict(row) for row in cur.fetchall()]
+    finally:
+        conn.close()
