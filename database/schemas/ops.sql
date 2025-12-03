@@ -1,3 +1,8 @@
+/*
+  EARLY SCHEMA EXAMPLE for ops - OPS SCHEMA NOW MANAGED IN editorial dashboard (reporting pipeline repo)
+*/
+
+
 -- State + checkpoints live under ops.*
 create schema if not exists ops;
 
