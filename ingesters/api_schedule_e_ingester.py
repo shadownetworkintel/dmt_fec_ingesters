@@ -2,7 +2,7 @@ import argparse
 import os
 import json
 import time
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from psycopg2.extras import execute_batch
 from core.logger import get_logger
 from core.database import db_cursor
@@ -59,7 +59,7 @@ def adapt_value(val):
 
 def run(committee_id=None, resume_index=None, resume_date=None):
     logger.info(f"Starting schedule E ingester {'for ALL committees' if not committee_id else f'for {committee_id}'}")
-    run_started_at = datetime.now()
+    run_started_at = datetime.now(timezone.utc)
 
     total_inserted = 0
     page = 1
