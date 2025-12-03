@@ -3,6 +3,7 @@ import argparse
 import sys
 import os
 from dotenv import load_dotenv
+from core.utils import get_committees_by_candidate_id
 
 # Load environment first
 load_dotenv()
@@ -39,6 +40,13 @@ def main():
     # Enable all committees mode
     all_parser = subparsers.add_parser('all', help='Enable all committees mode (deactivate all targets)')
     
+    # Add by candidate
+    add_by_cand_parser = subparsers.add_parser(
+        'add-by-candidate',
+        help='Add all committees associated with a candidate_id'
+    )
+    add_by_cand_parser.add_argument('candidate_id', help='Candidate ID (e.g., H0NY12345)')
+
     args = parser.parse_args()
     
     if args.command == 'list':
@@ -75,6 +83,27 @@ def main():
         else:
             print("Failed to enable all committees mode")
             sys.exit(1)
+            
+    elif args.command == 'add-by-candidate':
+        candidate_id = args.candidate_id
+        committees = get_committees_by_candidate_id(candidate_id)
+        if not committees:
+            print(f"No committees found for candidate_id: {candidate_id}")
+            sys.exit(1)
+        added = 0
+        for committee in committees:
+            success = add_committee_target(
+                committee['committee_id'],
+                committee.get('committee_name'),
+                committee.get('candidate_ids')
+            )
+            if success:
+                print(f"Added committee {committee['committee_id']}")
+                added += 1
+            else:
+                print(f"Failed to add committee {committee['committee_id']}")
+        print(f"Added {added} committees for candidate_id: {candidate_id}")
+
     else:
         parser.print_help()
 
