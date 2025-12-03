@@ -19,6 +19,7 @@ from ingesters import (
     api_schedule_a_ingester,
     api_schedule_b_ingester,
     api_schedule_e_ingester,
+    api_totals_ingester
 )
 from core.logger import get_logger
 
@@ -35,11 +36,12 @@ def run_with_logging(name, func):
 def main():
     logger.info("=== Starting full ingestion pipeline ===")
 
-    run_with_logging("Candidates Ingester", api_candidates_ingester.run)
-    run_with_logging("Committees Ingester", api_committees_ingester.run)
+    # run_with_logging("Candidates Ingester", api_candidates_ingester.run)
+    # run_with_logging("Committees Ingester", api_committees_ingester.run)
     run_with_logging("Schedule A Ingester", api_schedule_a_ingester.main)
     run_with_logging("Schedule B Ingester", api_schedule_b_ingester.main)
     run_with_logging("Schedule E Ingester", api_schedule_e_ingester.main)
+    run_with_logging("Totals Ingester", api_totals_ingester.main)
 
     logger.info("=== All ingestion tasks complete ===")
 
