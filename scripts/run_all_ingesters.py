@@ -1,16 +1,7 @@
+from core.env import load_environment
 
-from dotenv import load_dotenv
-import os
-
-# Load default .env first (to pick up ENV_MODE and other fallback values)
-load_dotenv()
-
-# Determine which environment file to load next
-env_mode = os.getenv("ENV_MODE", "dev") # Default to 'dev' if not set
-env_file = f".env.{env_mode}"
-
-# Load the environment-specific overrides (e.g., .env.dev or .env.prod)
-load_dotenv(dotenv_path=env_file, override=True)
+# Load environment (.env + .env.<ENV_MODE>)
+load_environment()
 
 # Import all ingesters *AFTER* environment is loaded
 from ingesters import (
@@ -19,7 +10,6 @@ from ingesters import (
     api_schedule_a_ingester,
     api_schedule_b_ingester,
     api_schedule_e_ingester,
-    api_totals_ingester
 )
 from core.logger import get_logger
 
@@ -36,12 +26,12 @@ def run_with_logging(name, func):
 def main():
     logger.info("=== Starting full ingestion pipeline ===")
 
-    # run_with_logging("Candidates Ingester", api_candidates_ingester.run)
-    # run_with_logging("Committees Ingester", api_committees_ingester.run)
     run_with_logging("Schedule A Ingester", api_schedule_a_ingester.main)
     run_with_logging("Schedule B Ingester", api_schedule_b_ingester.main)
     run_with_logging("Schedule E Ingester", api_schedule_e_ingester.main)
     run_with_logging("Totals Ingester", api_totals_ingester.main)
+    run_with_logging("Candidates Ingester", api_candidates_ingester.run)
+    run_with_logging("Committees Ingester", api_committees_ingester.run)
 
     logger.info("=== All ingestion tasks complete ===")
 
