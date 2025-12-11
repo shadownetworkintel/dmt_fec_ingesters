@@ -11,11 +11,14 @@ from sqlalchemy import (
     String,
     Index,
     text,
+    MetaData,        # add this
 )
 from sqlalchemy.orm import declarative_base
 from sqlalchemy.dialects.postgresql import JSONB
 
-Base = declarative_base()
+# Default all tables to schema 'fec'
+metadata = MetaData(schema="fec")
+Base = declarative_base(metadata=metadata)
 
 
 class Candidate(Base):

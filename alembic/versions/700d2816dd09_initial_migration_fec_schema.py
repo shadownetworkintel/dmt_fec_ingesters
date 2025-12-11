@@ -1,8 +1,8 @@
-"""initial migration - public schema
+"""initial migration - fec schema
 
-Revision ID: b24155d3f86d
+Revision ID: 700d2816dd09
 Revises: 
-Create Date: 2025-12-10 00:29:56.010981
+Create Date: 2025-12-11 18:10:38.153901
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
-revision: str = 'b24155d3f86d'
+revision: str = '700d2816dd09'
 down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -52,16 +52,17 @@ def upgrade() -> None:
     sa.Column('principal_campaign_committee_name', sa.Text(), nullable=True),
     sa.Column('ingestion_date', sa.DateTime(), server_default=sa.text('CURRENT_TIMESTAMP'), nullable=True),
     sa.Column('last_updated', sa.DateTime(), nullable=True),
-    sa.PrimaryKeyConstraint('candidate_id')
+    sa.PrimaryKeyConstraint('candidate_id'),
+    schema='fec'
     )
-    op.create_index('idx_candidates_candidate_id', 'candidates', ['candidate_id'], unique=False)
-    op.create_index('idx_candidates_committee_ids', 'candidates', ['committee_ids'], unique=False, postgresql_using='gin')
-    op.create_index('idx_candidates_cycle', 'candidates', ['cycle'], unique=False)
-    op.create_index('idx_candidates_election_years', 'candidates', ['election_years'], unique=False, postgresql_using='gin')
-    op.create_index('idx_candidates_name', 'candidates', ['name'], unique=False)
-    op.create_index('idx_candidates_office', 'candidates', ['office'], unique=False)
-    op.create_index('idx_candidates_party', 'candidates', ['party'], unique=False)
-    op.create_index('idx_candidates_state', 'candidates', ['state'], unique=False)
+    op.create_index('idx_candidates_candidate_id', 'candidates', ['candidate_id'], unique=False, schema='fec')
+    op.create_index('idx_candidates_committee_ids', 'candidates', ['committee_ids'], unique=False, schema='fec', postgresql_using='gin')
+    op.create_index('idx_candidates_cycle', 'candidates', ['cycle'], unique=False, schema='fec')
+    op.create_index('idx_candidates_election_years', 'candidates', ['election_years'], unique=False, schema='fec', postgresql_using='gin')
+    op.create_index('idx_candidates_name', 'candidates', ['name'], unique=False, schema='fec')
+    op.create_index('idx_candidates_office', 'candidates', ['office'], unique=False, schema='fec')
+    op.create_index('idx_candidates_party', 'candidates', ['party'], unique=False, schema='fec')
+    op.create_index('idx_candidates_state', 'candidates', ['state'], unique=False, schema='fec')
     op.create_table('committees',
     sa.Column('committee_id', sa.Text(), nullable=False),
     sa.Column('name', sa.Text(), nullable=True),
@@ -123,21 +124,23 @@ def upgrade() -> None:
     sa.Column('terminated', sa.Boolean(), nullable=True),
     sa.Column('ingestion_date', sa.DateTime(), server_default=sa.text('CURRENT_TIMESTAMP'), nullable=True),
     sa.Column('last_updated', sa.DateTime(), nullable=True),
-    sa.PrimaryKeyConstraint('committee_id')
+    sa.PrimaryKeyConstraint('committee_id'),
+    schema='fec'
     )
-    op.create_index('idx_committees_candidate_ids', 'committees', ['candidate_ids'], unique=False, postgresql_using='gin')
-    op.create_index('idx_committees_committee_id', 'committees', ['committee_id'], unique=False)
-    op.create_index('idx_committees_committee_type', 'committees', ['committee_type'], unique=False)
-    op.create_index('idx_committees_cycles', 'committees', ['cycles'], unique=False, postgresql_using='gin')
-    op.create_index('idx_committees_is_active', 'committees', ['is_active'], unique=False)
-    op.create_index('idx_committees_name', 'committees', ['name'], unique=False)
-    op.create_index('idx_committees_party', 'committees', ['party'], unique=False)
-    op.create_index('idx_committees_state', 'committees', ['state'], unique=False)
-    op.create_index('idx_committees_terminated', 'committees', ['terminated'], unique=False)
+    op.create_index('idx_committees_candidate_ids', 'committees', ['candidate_ids'], unique=False, schema='fec', postgresql_using='gin')
+    op.create_index('idx_committees_committee_id', 'committees', ['committee_id'], unique=False, schema='fec')
+    op.create_index('idx_committees_committee_type', 'committees', ['committee_type'], unique=False, schema='fec')
+    op.create_index('idx_committees_cycles', 'committees', ['cycles'], unique=False, schema='fec', postgresql_using='gin')
+    op.create_index('idx_committees_is_active', 'committees', ['is_active'], unique=False, schema='fec')
+    op.create_index('idx_committees_name', 'committees', ['name'], unique=False, schema='fec')
+    op.create_index('idx_committees_party', 'committees', ['party'], unique=False, schema='fec')
+    op.create_index('idx_committees_state', 'committees', ['state'], unique=False, schema='fec')
+    op.create_index('idx_committees_terminated', 'committees', ['terminated'], unique=False, schema='fec')
     op.create_table('purpose_keywords',
     sa.Column('kw', sa.Text(), nullable=False),
     sa.Column('category', sa.Text(), nullable=True),
-    sa.PrimaryKeyConstraint('kw')
+    sa.PrimaryKeyConstraint('kw'),
+    schema='fec'
     )
     op.create_table('schedule_a_contributions',
     sa.Column('amendment_indicator', sa.String(length=1), nullable=True),
@@ -222,12 +225,13 @@ def upgrade() -> None:
     sa.Column('unused_contbr_id', sa.String(length=9), nullable=True),
     sa.Column('ingestion_date', sa.DateTime(), server_default=sa.text('CURRENT_TIMESTAMP'), nullable=True),
     sa.Column('last_updated', sa.DateTime(), nullable=True),
-    sa.PrimaryKeyConstraint('sub_id')
+    sa.PrimaryKeyConstraint('sub_id'),
+    schema='fec'
     )
-    op.create_index('idx_schedule_a_amount', 'schedule_a_contributions', ['contribution_receipt_amount'], unique=False)
-    op.create_index('idx_schedule_a_committee_id', 'schedule_a_contributions', ['committee_id'], unique=False)
-    op.create_index('idx_schedule_a_date', 'schedule_a_contributions', ['contribution_receipt_date'], unique=False)
-    op.create_index('idx_schedule_a_two_year_period', 'schedule_a_contributions', ['two_year_transaction_period'], unique=False)
+    op.create_index('idx_schedule_a_amount', 'schedule_a_contributions', ['contribution_receipt_amount'], unique=False, schema='fec')
+    op.create_index('idx_schedule_a_committee_id', 'schedule_a_contributions', ['committee_id'], unique=False, schema='fec')
+    op.create_index('idx_schedule_a_date', 'schedule_a_contributions', ['contribution_receipt_date'], unique=False, schema='fec')
+    op.create_index('idx_schedule_a_two_year_period', 'schedule_a_contributions', ['two_year_transaction_period'], unique=False, schema='fec')
     op.create_table('schedule_b_disbursements',
     sa.Column('amendment_indicator', sa.Text(), nullable=True),
     sa.Column('amendment_indicator_desc', sa.Text(), nullable=True),
@@ -311,16 +315,17 @@ def upgrade() -> None:
     sa.Column('unused_recipient_id', sa.Text(), nullable=True),
     sa.Column('ingestion_date', sa.DateTime(), server_default=sa.text('CURRENT_TIMESTAMP'), nullable=True),
     sa.Column('last_updated', sa.DateTime(), nullable=True),
-    sa.PrimaryKeyConstraint('sub_id')
+    sa.PrimaryKeyConstraint('sub_id'),
+    schema='fec'
     )
-    op.create_index('idx_sched_b_candidate_id', 'schedule_b_disbursements', ['candidate_id'], unique=False)
-    op.create_index('idx_sched_b_committee_id', 'schedule_b_disbursements', ['committee_id'], unique=False)
-    op.create_index('idx_sched_b_disb_date', 'schedule_b_disbursements', ['disbursement_date'], unique=False)
-    op.create_index('idx_sched_b_recipient_name', 'schedule_b_disbursements', ['recipient_name'], unique=False)
-    op.create_index('idx_sched_b_report_year', 'schedule_b_disbursements', ['report_year'], unique=False)
-    op.create_index('idx_sched_b_transaction_id', 'schedule_b_disbursements', ['transaction_id'], unique=False)
-    op.create_index('idx_schedb_disbursement_description_trgm', 'schedule_b_disbursements', ['disbursement_description'], unique=False, postgresql_using='gin', postgresql_ops={'disbursement_description': 'gin_trgm_ops'})
-    op.create_index('idx_schedb_recipient_trgm', 'schedule_b_disbursements', ['recipient_name'], unique=False, postgresql_using='gin', postgresql_ops={'recipient_name': 'gin_trgm_ops'})
+    op.create_index('idx_sched_b_candidate_id', 'schedule_b_disbursements', ['candidate_id'], unique=False, schema='fec')
+    op.create_index('idx_sched_b_committee_id', 'schedule_b_disbursements', ['committee_id'], unique=False, schema='fec')
+    op.create_index('idx_sched_b_disb_date', 'schedule_b_disbursements', ['disbursement_date'], unique=False, schema='fec')
+    op.create_index('idx_sched_b_recipient_name', 'schedule_b_disbursements', ['recipient_name'], unique=False, schema='fec')
+    op.create_index('idx_sched_b_report_year', 'schedule_b_disbursements', ['report_year'], unique=False, schema='fec')
+    op.create_index('idx_sched_b_transaction_id', 'schedule_b_disbursements', ['transaction_id'], unique=False, schema='fec')
+    op.create_index('idx_schedb_disbursement_description_trgm', 'schedule_b_disbursements', ['disbursement_description'], unique=False, schema='fec', postgresql_using='gin', postgresql_ops={'disbursement_description': 'gin_trgm_ops'})
+    op.create_index('idx_schedb_recipient_trgm', 'schedule_b_disbursements', ['recipient_name'], unique=False, schema='fec', postgresql_using='gin', postgresql_ops={'recipient_name': 'gin_trgm_ops'})
     op.create_table('schedule_e_expenditures',
     sa.Column('action_code', sa.Text(), nullable=True),
     sa.Column('action_code_full', sa.Text(), nullable=True),
@@ -440,28 +445,32 @@ def upgrade() -> None:
     sa.Column('transaction_id', sa.Text(), nullable=True),
     sa.Column('ingestion_date', sa.DateTime(), server_default=sa.text('CURRENT_TIMESTAMP'), nullable=True),
     sa.Column('last_updated', sa.DateTime(), nullable=True),
-    sa.PrimaryKeyConstraint('sub_id')
+    sa.PrimaryKeyConstraint('sub_id'),
+    schema='fec'
     )
-    op.create_index('idx_schedule_e_candidate_id', 'schedule_e_expenditures', ['candidate_id'], unique=False)
-    op.create_index('idx_schedule_e_committee_id', 'schedule_e_expenditures', ['committee_id'], unique=False)
-    op.create_index('idx_schedule_e_expenditure_date', 'schedule_e_expenditures', ['expenditure_date'], unique=False)
-    op.create_index('idx_schedule_e_filing_date', 'schedule_e_expenditures', ['filing_date'], unique=False)
-    op.create_index('idx_schedule_e_report_year', 'schedule_e_expenditures', ['report_year'], unique=False)
+    op.create_index('idx_schedule_e_candidate_id', 'schedule_e_expenditures', ['candidate_id'], unique=False, schema='fec')
+    op.create_index('idx_schedule_e_committee_id', 'schedule_e_expenditures', ['committee_id'], unique=False, schema='fec')
+    op.create_index('idx_schedule_e_expenditure_date', 'schedule_e_expenditures', ['expenditure_date'], unique=False, schema='fec')
+    op.create_index('idx_schedule_e_filing_date', 'schedule_e_expenditures', ['filing_date'], unique=False, schema='fec')
+    op.create_index('idx_schedule_e_report_year', 'schedule_e_expenditures', ['report_year'], unique=False, schema='fec')
     op.create_table('vendor_category_manual',
     sa.Column('recipient_name', sa.Text(), nullable=False),
     sa.Column('category', sa.Text(), nullable=False),
-    sa.PrimaryKeyConstraint('recipient_name')
+    sa.PrimaryKeyConstraint('recipient_name'),
+    schema='fec'
     )
     op.create_table('vendor_category_map',
     sa.Column('recipient_name', sa.Text(), nullable=False),
     sa.Column('category', sa.Text(), nullable=True),
     sa.PrimaryKeyConstraint('recipient_name'),
+    schema='fec',
     info={'is_view': True}
     )
     op.create_table('vendor_name_keywords',
     sa.Column('kw', sa.Text(), nullable=False),
     sa.Column('category', sa.Text(), nullable=True),
-    sa.PrimaryKeyConstraint('kw')
+    sa.PrimaryKeyConstraint('kw'),
+    schema='fec'
     )
     # ### end Alembic commands ###
 
@@ -469,47 +478,47 @@ def upgrade() -> None:
 def downgrade() -> None:
     """Downgrade schema."""
     # ### commands auto generated by Alembic - please adjust! ###
-    op.drop_table('vendor_name_keywords')
-    op.drop_table('vendor_category_map')
-    op.drop_table('vendor_category_manual')
-    op.drop_index('idx_schedule_e_report_year', table_name='schedule_e_expenditures')
-    op.drop_index('idx_schedule_e_filing_date', table_name='schedule_e_expenditures')
-    op.drop_index('idx_schedule_e_expenditure_date', table_name='schedule_e_expenditures')
-    op.drop_index('idx_schedule_e_committee_id', table_name='schedule_e_expenditures')
-    op.drop_index('idx_schedule_e_candidate_id', table_name='schedule_e_expenditures')
-    op.drop_table('schedule_e_expenditures')
-    op.drop_index('idx_schedb_recipient_trgm', table_name='schedule_b_disbursements', postgresql_using='gin', postgresql_ops={'recipient_name': 'gin_trgm_ops'})
-    op.drop_index('idx_schedb_disbursement_description_trgm', table_name='schedule_b_disbursements', postgresql_using='gin', postgresql_ops={'disbursement_description': 'gin_trgm_ops'})
-    op.drop_index('idx_sched_b_transaction_id', table_name='schedule_b_disbursements')
-    op.drop_index('idx_sched_b_report_year', table_name='schedule_b_disbursements')
-    op.drop_index('idx_sched_b_recipient_name', table_name='schedule_b_disbursements')
-    op.drop_index('idx_sched_b_disb_date', table_name='schedule_b_disbursements')
-    op.drop_index('idx_sched_b_committee_id', table_name='schedule_b_disbursements')
-    op.drop_index('idx_sched_b_candidate_id', table_name='schedule_b_disbursements')
-    op.drop_table('schedule_b_disbursements')
-    op.drop_index('idx_schedule_a_two_year_period', table_name='schedule_a_contributions')
-    op.drop_index('idx_schedule_a_date', table_name='schedule_a_contributions')
-    op.drop_index('idx_schedule_a_committee_id', table_name='schedule_a_contributions')
-    op.drop_index('idx_schedule_a_amount', table_name='schedule_a_contributions')
-    op.drop_table('schedule_a_contributions')
-    op.drop_table('purpose_keywords')
-    op.drop_index('idx_committees_terminated', table_name='committees')
-    op.drop_index('idx_committees_state', table_name='committees')
-    op.drop_index('idx_committees_party', table_name='committees')
-    op.drop_index('idx_committees_name', table_name='committees')
-    op.drop_index('idx_committees_is_active', table_name='committees')
-    op.drop_index('idx_committees_cycles', table_name='committees', postgresql_using='gin')
-    op.drop_index('idx_committees_committee_type', table_name='committees')
-    op.drop_index('idx_committees_committee_id', table_name='committees')
-    op.drop_index('idx_committees_candidate_ids', table_name='committees', postgresql_using='gin')
-    op.drop_table('committees')
-    op.drop_index('idx_candidates_state', table_name='candidates')
-    op.drop_index('idx_candidates_party', table_name='candidates')
-    op.drop_index('idx_candidates_office', table_name='candidates')
-    op.drop_index('idx_candidates_name', table_name='candidates')
-    op.drop_index('idx_candidates_election_years', table_name='candidates', postgresql_using='gin')
-    op.drop_index('idx_candidates_cycle', table_name='candidates')
-    op.drop_index('idx_candidates_committee_ids', table_name='candidates', postgresql_using='gin')
-    op.drop_index('idx_candidates_candidate_id', table_name='candidates')
-    op.drop_table('candidates')
+    op.drop_table('vendor_name_keywords', schema='fec')
+    op.drop_table('vendor_category_map', schema='fec')
+    op.drop_table('vendor_category_manual', schema='fec')
+    op.drop_index('idx_schedule_e_report_year', table_name='schedule_e_expenditures', schema='fec')
+    op.drop_index('idx_schedule_e_filing_date', table_name='schedule_e_expenditures', schema='fec')
+    op.drop_index('idx_schedule_e_expenditure_date', table_name='schedule_e_expenditures', schema='fec')
+    op.drop_index('idx_schedule_e_committee_id', table_name='schedule_e_expenditures', schema='fec')
+    op.drop_index('idx_schedule_e_candidate_id', table_name='schedule_e_expenditures', schema='fec')
+    op.drop_table('schedule_e_expenditures', schema='fec')
+    op.drop_index('idx_schedb_recipient_trgm', table_name='schedule_b_disbursements', schema='fec', postgresql_using='gin', postgresql_ops={'recipient_name': 'gin_trgm_ops'})
+    op.drop_index('idx_schedb_disbursement_description_trgm', table_name='schedule_b_disbursements', schema='fec', postgresql_using='gin', postgresql_ops={'disbursement_description': 'gin_trgm_ops'})
+    op.drop_index('idx_sched_b_transaction_id', table_name='schedule_b_disbursements', schema='fec')
+    op.drop_index('idx_sched_b_report_year', table_name='schedule_b_disbursements', schema='fec')
+    op.drop_index('idx_sched_b_recipient_name', table_name='schedule_b_disbursements', schema='fec')
+    op.drop_index('idx_sched_b_disb_date', table_name='schedule_b_disbursements', schema='fec')
+    op.drop_index('idx_sched_b_committee_id', table_name='schedule_b_disbursements', schema='fec')
+    op.drop_index('idx_sched_b_candidate_id', table_name='schedule_b_disbursements', schema='fec')
+    op.drop_table('schedule_b_disbursements', schema='fec')
+    op.drop_index('idx_schedule_a_two_year_period', table_name='schedule_a_contributions', schema='fec')
+    op.drop_index('idx_schedule_a_date', table_name='schedule_a_contributions', schema='fec')
+    op.drop_index('idx_schedule_a_committee_id', table_name='schedule_a_contributions', schema='fec')
+    op.drop_index('idx_schedule_a_amount', table_name='schedule_a_contributions', schema='fec')
+    op.drop_table('schedule_a_contributions', schema='fec')
+    op.drop_table('purpose_keywords', schema='fec')
+    op.drop_index('idx_committees_terminated', table_name='committees', schema='fec')
+    op.drop_index('idx_committees_state', table_name='committees', schema='fec')
+    op.drop_index('idx_committees_party', table_name='committees', schema='fec')
+    op.drop_index('idx_committees_name', table_name='committees', schema='fec')
+    op.drop_index('idx_committees_is_active', table_name='committees', schema='fec')
+    op.drop_index('idx_committees_cycles', table_name='committees', schema='fec', postgresql_using='gin')
+    op.drop_index('idx_committees_committee_type', table_name='committees', schema='fec')
+    op.drop_index('idx_committees_committee_id', table_name='committees', schema='fec')
+    op.drop_index('idx_committees_candidate_ids', table_name='committees', schema='fec', postgresql_using='gin')
+    op.drop_table('committees', schema='fec')
+    op.drop_index('idx_candidates_state', table_name='candidates', schema='fec')
+    op.drop_index('idx_candidates_party', table_name='candidates', schema='fec')
+    op.drop_index('idx_candidates_office', table_name='candidates', schema='fec')
+    op.drop_index('idx_candidates_name', table_name='candidates', schema='fec')
+    op.drop_index('idx_candidates_election_years', table_name='candidates', schema='fec', postgresql_using='gin')
+    op.drop_index('idx_candidates_cycle', table_name='candidates', schema='fec')
+    op.drop_index('idx_candidates_committee_ids', table_name='candidates', schema='fec', postgresql_using='gin')
+    op.drop_index('idx_candidates_candidate_id', table_name='candidates', schema='fec')
+    op.drop_table('candidates', schema='fec')
     # ### end Alembic commands ###
