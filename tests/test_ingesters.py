@@ -412,31 +412,44 @@ class TestScheduleBIngester:
     @patch('ingesters.api_schedule_b_ingester.get_last_run')
     @patch('ingesters.api_schedule_b_ingester.update_last_run')
     @patch('ingesters.api_schedule_b_ingester.time.sleep')
-    def test_schedule_b_broken_indexes_handling(self, mock_sleep, mock_update_last_run, mock_get_last_run, 
-                                              mock_get_checkpoint, mock_clear_checkpoint, mock_fetch, 
-                                              mock_db_cursor, mock_execute_batch, mock_slack):
-        """Test Schedule B handling of broken last_indexes."""
+    def test_schedule_b_broken_indexes_handling(
+        self,
+        mock_sleep,
+        mock_update_last_run,
+        mock_get_last_run,
+        mock_get_checkpoint,
+        mock_clear_checkpoint,
+        mock_fetch,
+        mock_db_cursor,
+        mock_execute_batch,
+        mock_slack,
+    ):
+        """Test Schedule B resuming from a checkpoint with a 'broken' last_index."""
         mock_get_last_run.return_value = None
         mock_get_checkpoint.return_value = {
-            'last_index': '1022620190037443452',  # Known broken index
-            'last_disbursement_date': '2025-08-28'
+            "last_index": "1022620190037443452",  # Known broken index
+            "last_disbursement_date": "2025-08-28",
         }
         mock_cursor = MagicMock()
         mock_db_cursor.return_value.__enter__.return_value = mock_cursor
-        
+
         api_response = {
-            'results': [{'sub_id': '1001', 'disbursement_amount': 100.0}],
-            'pagination': {'last_indexes': {}}
+            "results": [{"sub_id": "1001", "disbursement_amount": 100.0}],
+            "pagination": {"last_indexes": {}},
         }
-        mock_fetch.side_effect = [api_response, {'results': []}]
-        
+        mock_fetch.side_effect = [api_response, {"results": []}]
+
         from ingesters.api_schedule_b_ingester import run
+
         run()
-        
-        # Verify that per_page was reduced for broken index
+
+        # Verify that we used the checkpoint values when resuming
         call_args = mock_fetch.call_args_list[0]
         params = call_args[0][1]
-        assert params['per_page'] == 10  # Reduced from 100 to 10
+        assert params["last_index"] == "1022620190037443452"
+        assert params["last_disbursement_date"] == "2025-08-28"
+        # still expect default page size
+        assert params["per_page"] == 100
 
     @patch('ingesters.api_schedule_b_ingester.send_slack_alert')
     @patch('ingesters.api_schedule_b_ingester.execute_batch')

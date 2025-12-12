@@ -8,34 +8,61 @@ logger = logging.getLogger(__name__)
 _CONN = None
 _DSN = None
 
-def _get_dsn():
-    """Build DSN on first use, after environment variables are loaded."""
-    global _DSN
-    if _DSN is not None:
-        return _DSN
-    
-    # Always build from individual components to avoid URL parsing issues
+
+def _load_db_settings():
+    """Read DB_* env vars and validate."""
     db_host = os.getenv('DB_HOST')
     db_name = os.getenv('DB_NAME')
     db_user = os.getenv('DB_USER')
     db_password = os.getenv('DB_PASSWORD')
     db_port = os.getenv('DB_PORT', '5432')
-    
-    # Check if required variables are present
+
     if not all([db_host, db_name, db_user, db_password]):
-        raise ValueError(f"Missing required database environment variables. Got: HOST={db_host}, NAME={db_name}, USER={db_user}, PASSWORD={'***' if db_password else None}")
-    
+        raise ValueError(
+            "Missing required database environment variables. "
+            f"Got: HOST={db_host}, NAME={db_name}, USER={db_user}, "
+            f"PASSWORD={'***' if db_password else None}"
+        )
+
+    return {
+        "host": db_host,
+        "name": db_name,
+        "user": db_user,
+        "password": db_password,
+        "port": db_port,
+    }
+
+
+def get_sqlalchemy_url() -> str:
+    """
+    Build a SQLAlchemy URL from the same DB_* env vars used for psycopg2.
+    """
+    cfg = _load_db_settings()
+    return (
+        f"postgresql+psycopg2://{cfg['user']}:{cfg['password']}"
+        f"@{cfg['host']}:{cfg['port']}/{cfg['name']}"
+    )
+
+
+def _get_dsn():
+    """Build DSN on first use, after environment variables are loaded."""
+    global _DSN
+    if _DSN is not None:
+        return _DSN
+
+    cfg = _load_db_settings()
+
     _DSN = (
-        f"host={db_host} "
-        f"port={db_port} "
-        f"dbname={db_name} "
-        f"user={db_user} "
-        f"password={db_password} "
+        f"host={cfg['host']} "
+        f"port={cfg['port']} "
+        f"dbname={cfg['name']} "
+        f"user={cfg['user']} "
+        f"password={cfg['password']} "
         f"sslmode=require "
         f"application_name=ingester "
         f"connect_timeout=10"
     )
-    
+
     return _DSN
 
 def _connect():
