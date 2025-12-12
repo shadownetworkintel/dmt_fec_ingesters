@@ -11,14 +11,12 @@ from sqlalchemy import (
     String,
     Index,
     text,
-    MetaData,        # add this
 )
 from sqlalchemy.orm import declarative_base
 from sqlalchemy.dialects.postgresql import JSONB
 
-# Default all tables to schema 'fec'
-metadata = MetaData(schema="fec")
-Base = declarative_base(metadata=metadata)
+# Default all tables to the default schema (public)
+Base = declarative_base()
 
 
 class Candidate(Base):
@@ -544,3 +542,69 @@ class VendorCategoryMap(Base):
     # treat recipient_name as a primary key for ORM identity.
     recipient_name = Column(Text, primary_key=True)
     category = Column(Text)
+
+class Totals(Base):
+    __tablename__ = "totals"
+
+    committee_id = Column(Text, primary_key=True)
+    cycle = Column(Integer, primary_key=True)
+
+    committee_name = Column(Text)
+    committee_designation = Column(Text)
+    committee_designation_full = Column(Text)
+    committee_state = Column(Text)
+    committee_type = Column(Text)
+    committee_type_full = Column(Text)
+    organization_type = Column(Text)
+    organization_type_full = Column(Text)
+    treasurer_name = Column(Text)
+    filing_frequency = Column(Text)
+    filing_frequency_full = Column(Text)
+    party_full = Column(Text)
+    coverage_start_date = Column(Date)
+    coverage_end_date = Column(Date)
+    transaction_coverage_date = Column(Date)
+    first_f1_date = Column(Date)
+    first_file_date = Column(Date)
+    last_beginning_image_number = Column(Text)
+    last_cash_on_hand_end_period = Column(Numeric)
+    last_debts_owed_by_committee = Column(Numeric)
+    last_debts_owed_to_committee = Column(Numeric)
+    last_report_type_full = Column(Text)
+    last_report_year = Column(Integer)
+    all_other_loans = Column(Numeric)
+    candidate_contribution = Column(Numeric)
+    cash_on_hand_beginning_period = Column(Numeric)
+    contribution_refunds = Column(Numeric)
+    contributions = Column(Numeric)
+    disbursements = Column(Numeric)
+    individual_contributions = Column(Numeric)
+    individual_itemized_contributions = Column(Numeric)
+    individual_unitemized_contributions = Column(Numeric)
+    loan_repayments = Column(Numeric)
+    loan_repayments_candidate_loans = Column(Numeric)
+    loan_repayments_other_loans = Column(Numeric)
+    loans = Column(Numeric)
+    loans_made_by_candidate = Column(Numeric)
+    net_contributions = Column(Numeric)
+    net_operating_expenditures = Column(Numeric)
+    offsets_to_operating_expenditures = Column(Numeric)
+    operating_expenditures = Column(Numeric)
+    other_disbursements = Column(Numeric)
+    other_political_committee_contributions = Column(Numeric)
+    other_receipts = Column(Numeric)
+    political_party_committee_contributions = Column(Numeric)
+    receipts = Column(Numeric)
+    refunded_individual_contributions = Column(Numeric)
+    refunded_other_political_committee_contributions = Column(Numeric)
+    refunded_political_party_committee_contributions = Column(Numeric)
+    transfers_from_other_authorized_committee = Column(Numeric)
+    transfers_to_other_authorized_committee = Column(Numeric)
+
+    ingestion_date = Column(DateTime, server_default=text("CURRENT_TIMESTAMP"))
+    last_updated = Column(DateTime)
+
+
+# totals indexes
+Index("idx_totals_committee_type", Totals.committee_type)
+Index("idx_totals_committee_state", Totals.committee_state)

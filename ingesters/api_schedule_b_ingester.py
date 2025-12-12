@@ -2,7 +2,7 @@ import argparse
 import os
 import json
 import time
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from psycopg2.extras import execute_batch
 from core.logger import get_logger
 from core.database import db_cursor
@@ -48,8 +48,6 @@ ALL_FIELDS = [
 
 # Known bad indexes causing FEC server timeouts
 BROKEN_LAST_INDEXES = {
-    "1022620190037443452",  
-    "1021420250265768489",
 }
 
 def run(committee_id=None, resume_index=None, resume_date=None):  
