@@ -1,10 +1,9 @@
-import argparse
 import os
 import json
 import time
 from datetime import datetime
 from psycopg2.extras import execute_batch
-import requests  # <-- Add this import at the top
+import requests
 from core.logger import get_logger
 from core.database import db_cursor
 from core.state_tracker import get_last_run, update_last_run
@@ -58,7 +57,7 @@ def run(committee_id=None):
             params["page"] = page
 
             logger.info(
-                f"Fetching page {page} for committee_id={committee_id} with params: {json.dumps(params)}"
+                f"Fetching page {page} for committee_id={committee_id}"
             )
 
             try:

@@ -34,19 +34,30 @@ def get_url() -> str:
 # Make sure alembic.ini sees the same URL (helps for 'alembic revision --autogenerate')
 config.set_main_option("sqlalchemy.url", get_url())
 
-def include_object(object, name, type_, reflected, compare_to):
-    """Only include objects in the 'fec' schema."""
+
+def include_object(obj, name, type_, reflected, compare_to):
+    """Only include objects in the 'public' schema (or default None)."""
+    # Skip ORM-mapped views
     if type_ == "table":
-        # Only process tables in 'fec' schema
-        if hasattr(object, "schema"):
-            return object.schema == "fec"
-        return False
+        info = getattr(obj, "info", {}) or {}
+        if info.get("is_view"):
+            return False
 
-    # For indexes, FKs, etc., check parent table's schema
-    if hasattr(object, "table") and hasattr(object.table, "schema"):
-        return object.table.schema == "fec"
+    if type_ == "schema":
+        return name == "public"
 
-    # Default: include
+    if type_ in ("table", "index"):
+        schema = getattr(obj, "schema", None)
+        if schema not in (None, "public"):
+            return False
+
+    # For constraints etc., rely on parent table
+    table = getattr(obj, "table", None)
+    if table is not None:
+        schema = getattr(table, "schema", None)
+        if schema not in (None, "public"):
+            return False
+
     return True
 
 
@@ -60,7 +71,7 @@ def run_migrations_offline() -> None:
         dialect_opts={"paramstyle": "named"},
         include_schemas=True,
         include_object=include_object,
-        version_table_schema="fec",  # store alembic_version in fec schema
+        # no explicit version_table_schema -> defaults to public
     )
 
     with context.begin_transaction():
@@ -76,22 +87,16 @@ def run_migrations_online() -> None:
     )
 
     with connectable.connect() as connection:
-        # 1. Ensure 'fec' schema exists in its own committed transaction
-        with connection.begin():
-            connection.exec_driver_sql("CREATE SCHEMA IF NOT EXISTS fec")
-
-        # 2. Configure Alembic to use fec.alembic_version
         context.configure(
             connection=connection,
             target_metadata=target_metadata,
             include_schemas=True,
             include_object=include_object,
-            version_table_schema="fec",
+            # no explicit version_table_schema -> defaults to public
             compare_type=True,
             compare_server_default=True,
         )
 
-        # 3. Run migrations in Alembic's transaction
         with context.begin_transaction():
             context.run_migrations()
 
