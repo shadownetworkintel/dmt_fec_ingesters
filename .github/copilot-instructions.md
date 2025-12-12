@@ -1,4 +1,4 @@
-# AI Coding Agent Instructions for dmt_fec_ingesters
+# AI Coding Agent Instructions for dmt_fec_ingesters 
 
 These guidelines are for AI assistants (e.g., GitHub Copilot Chat) working in this repository.
 Focus on preserving existing patterns for database access, state tracking, and ingestion flows.
