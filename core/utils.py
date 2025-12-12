@@ -42,6 +42,55 @@ def load_committee_list() -> Optional[List[str]]:
         logger.info("Falling back to ALL committees mode")
         return None
 
+def load_candidate_list() -> Optional[List[str]]:
+    """
+    Load candidate IDs based on active committee targets.
+
+    For all active rows in ops.committee_targets, find matching committees,
+    flatten committees.candidate_ids (JSONB array), and return a distinct list
+    of candidate_ids.
+
+    Returns None for "all candidates" mode if nothing is found.
+    """
+    try:
+        with db_cursor() as cur:
+            cur.execute("""
+                SELECT DISTINCT jsonb_array_elements_text(cm.candidate_ids) AS candidate_id
+                FROM ops.committee_targets ct
+                JOIN committees cm
+                  ON cm.committee_id = ct.committee_id
+                WHERE ct.active = TRUE
+                  AND cm.candidate_ids IS NOT NULL
+            """)
+
+            rows = cur.fetchall()
+            if not rows:
+                logger.info(
+                    "No candidate_ids found for active committee targets; "
+                    "running for ALL candidates"
+                )
+                return None
+
+            candidate_ids = [row[0] for row in rows if row[0]]
+
+            if not candidate_ids:
+                logger.info(
+                    "No valid candidate_ids extracted from committees; "
+                    "running for ALL candidates"
+                )
+                return None
+
+            logger.info(
+                f"Loaded {len(candidate_ids)} candidate IDs from committee targets: "
+                f"{candidate_ids}"
+            )
+            return candidate_ids
+
+    except Exception as e:
+        logger.error(f"Error loading candidate list from committees.candidate_ids: {e}")
+        logger.info("Falling back to ALL candidates mode")
+        return None
+
 def add_committee_target(committee_id: str, committee_name: str = None, description: str = None) -> bool:
     """Add a new committee target to the database."""
     try:
