@@ -6,8 +6,8 @@ on:
   workflow_dispatch: {}
 
 concurrency:
-  group: dmt-fec-ingesters
-  cancel-in-progress: true
+  group: dmt-fec-ingesters-run
+  cancel-in-progress: false
 
 jobs:
   run:
@@ -16,21 +16,76 @@ jobs:
       - name: Setup flyctl
         uses: superfly/flyctl-actions/setup-flyctl@master
 
-      - name: Run ingesters using latest image (no build)
+      - name: Run ingesters (single-run, wait, cleanup)
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
         run: |
           set -euo pipefail
 
           APP="dmt-fec-ingesters"
+          REGION="iad"
           IMAGE="registry.fly.io/${APP}:latest"
+          NAME_PREFIX="run-ingesters"
 
+          echo "== Check for already-running ingester machine =="
+
+          RUNNING_ID="$(flyctl machine list -a "$APP" | tail -n +2 | awk '$3=="started" {print $1; exit}')"
+
+          if [ -n "$RUNNING_ID" ]; then
+            echo "An ingester machine is already running (ID: $RUNNING_ID)."
+            echo "Skipping this run to avoid overlap."
+            exit 0
+          fi
+
+          echo "== Start a new one-off machine =="
+          # Create a run-specific name (timestamp)
+          RUN_NAME="${NAME_PREFIX}-$(date +%Y%m%d%H%M%S)"
           echo "Using image: $IMAGE"
+          echo "Run name: $RUN_NAME"
 
+          # Start the machine (this may return quickly on some flyctl versions)
           flyctl machine run "$IMAGE" \
             --app "$APP" \
-            --region iad \
+            --region "$REGION" \
             --cpus 1 \
             --memory 512 \
-            --rm \
+            --name "$RUN_NAME" \
             --command "/app/docker-entrypoint.sh"
+
+          echo "== Find the newest machine (assumed to be this run) =="
+          # Grab the most recently created machine ID (top row after header)
+          # NOTE: This relies on flyctl listing newest first (it typically does).
+          MACHINE_ID="$(flyctl machine list -a "$APP" | tail -n +2 | head -n 1 | awk '{print $1}')"
+
+          if [ -z "$MACHINE_ID" ]; then
+            echo "ERROR: Could not determine machine id after starting run."
+            flyctl machine list -a "$APP" || true
+            exit 1
+          fi
+
+          echo "Machine ID: $MACHINE_ID"
+
+          echo "== Wait for machine to stop =="
+          # Poll status until it is not 'started'
+          for i in $(seq 1 360); do
+            STATE="$(flyctl machine status "$MACHINE_ID" -a "$APP" 2>/dev/null | awk -F': ' '/^State:/ {print $2; exit}' | xargs || true)"
+            echo "[$i] State: ${STATE:-unknown}"
+
+            if [ -z "$STATE" ]; then
+              # status might briefly fail; keep trying
+              sleep 10
+              continue
+            fi
+
+            if [ "$STATE" != "started" ]; then
+              echo "Machine finished with state: $STATE"
+              break
+            fi
+
+            sleep 10
+          done
+
+          echo "== Cleanup: destroy the machine =="
+          flyctl machine destroy "$MACHINE_ID" -a "$APP" || true
+
+          echo "Done."
