@@ -2,6 +2,7 @@ name: Run ingesters (scheduled)
 
 on:
   schedule:
+    # Daily at 2:30am Louisville (EST) = 07:30 UTC
     - cron: "30 7 * * *"
   workflow_dispatch: {}
 
@@ -20,10 +21,33 @@ jobs:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
         run: |
           set -euo pipefail
-          IMAGE=$(flyctl status --app dmt-fec-ingesters --json | jq -r '.Image')
+
+          APP="dmt-fec-ingesters"
+
+          echo "Fetching deployed image for app: $APP"
+
+          # Preferred: config show (stable)
+          IMAGE=$(flyctl config show --app "$APP" --json | jq -r '.image // empty')
+
+          # Fallback: if config doesn't include image, try the most recent machine's config
+          if [ -z "$IMAGE" ]; then
+            echo "No .image in flyctl config show; trying flyctl machine list fallback..."
+            IMAGE=$(flyctl machine list --app "$APP" --json | jq -r '.[0].config.image // empty')
+          fi
+
+          if [ -z "$IMAGE" ] || [ "$IMAGE" = "null" ]; then
+            echo "ERROR: Could not determine deployed image."
+            echo "flyctl config show --json:"
+            flyctl config show --app "$APP" --json || true
+            echo "flyctl machine list --json:"
+            flyctl machine list --app "$APP" --json || true
+            exit 1
+          fi
+
           echo "Using image: $IMAGE"
+
           flyctl machine run "$IMAGE" \
-            --app dmt-fec-ingesters \
+            --app "$APP" \
             --region iad \
             --cpus 1 \
             --memory 512 \
