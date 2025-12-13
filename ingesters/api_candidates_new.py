@@ -3,14 +3,13 @@ import json
 import time
 from datetime import datetime
 
-from psycopg2.extras import execute_batch
-
 from core.logger import get_logger
 from core.database import db_cursor
 from core.state_tracker import get_last_run, update_last_run
 from core.fetcher import fetch_with_retries
 from core.alerting import send_slack_alert
 from core.utils import load_candidate_list  # NEW
+from core.db_batch import execute_batch_with_retry
 
 logger = get_logger()
 
@@ -62,8 +61,7 @@ def _build_rows_from_results(results):
 def _upsert_candidates(rows):
     if not rows:
         return 0
-    with db_cursor() as cur:
-        execute_batch(cur, INSERT_SQL, rows)
+    execute_batch_with_retry(db_cursor, INSERT_SQL, rows, sleep_seconds=SLEEP_SECONDS)
     return len(rows)
 
 

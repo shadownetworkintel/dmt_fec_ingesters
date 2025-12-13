@@ -3,7 +3,6 @@ import os
 import json
 import time
 from datetime import datetime, timedelta, timezone
-from psycopg2.extras import execute_batch
 from core.logger import get_logger
 from core.database import db_cursor
 from core.state_tracker import (
@@ -17,6 +16,7 @@ from core.state_tracker import (
 from core.fetcher import fetch_with_retries
 from core.alerting import send_slack_alert
 from core.utils import load_committee_list
+from core.db_batch import execute_batch_with_retry
 
 logger = get_logger()
 
@@ -161,8 +161,7 @@ def run(committee_id=None, resume_index=None, resume_date=None):
                     last_updated = CASE WHEN {update_where} THEN NOW() ELSE schedule_e_expenditures.last_updated END
                 WHERE {update_where}
             """
-            with db_cursor() as cur:
-                execute_batch(cur, insert_sql, rows)
+            execute_batch_with_retry(db_cursor, insert_sql, rows, sleep_seconds=SLEEP_SECONDS)
 
             logger.info(f"Inserted {len(rows)} rows from page {page}.")
             total_inserted += len(rows)
