@@ -23,9 +23,10 @@ jobs:
 
           echo "Fetching deployed image from flyctl status for app: $APP"
 
-          # Extract the image string from `flyctl status` output line:
-          #   Image    = <image-ref>
-          IMAGE="$(flyctl status -a "$APP" | awk -F'= ' '/^[[:space:]]*Image[[:space:]]*=/ {print $2; exit}')"
+          IMAGE_RAW="$(flyctl status -a "$APP" | awk -F'= ' '/^[[:space:]]*Image[[:space:]]*=/ {print $2; exit}')"
+
+          # Trim leading/trailing whitespace/newlines
+          IMAGE="$(echo "$IMAGE_RAW" | xargs)"
 
           if [ -z "$IMAGE" ]; then
             echo "ERROR: Could not determine deployed image from flyctl status output."
