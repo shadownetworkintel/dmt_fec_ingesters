@@ -48,7 +48,7 @@ jobs:
             --app "$APP" \
             --region "$REGION" \
             --cpus 1 \
-            --memory 512 \
+            --memory 256 \
             --name "$RUN_NAME" \
             --command "/app/docker-entrypoint.sh"
 
