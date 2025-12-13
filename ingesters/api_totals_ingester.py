@@ -2,7 +2,6 @@ import os
 import json
 import time
 from datetime import datetime
-from psycopg2.extras import execute_batch
 import requests
 from core.logger import get_logger
 from core.database import db_cursor
@@ -10,6 +9,7 @@ from core.state_tracker import get_last_run, update_last_run
 from core.fetcher import fetch_with_retries
 from core.alerting import send_slack_alert
 from core.utils import load_committee_list
+from core.db_batch import execute_batch_with_retry
 
 logger = get_logger()
 
@@ -102,8 +102,7 @@ def run(committee_id=None):
                     f"totals.{field} IS DISTINCT FROM EXCLUDED.{field}" for field in TOTALS_FIELDS if field not in ("committee_id", "cycle")
                 ])}
             """
-            with db_cursor() as cur:
-                execute_batch(cur, insert_sql, rows)
+            execute_batch_with_retry(db_cursor, insert_sql, rows, sleep_seconds=SLEEP_SECONDS)
 
             logger.info(f"Inserted {len(rows)} rows (page {page}) for committee_id={committee_id}")
             total_inserted += len(rows)

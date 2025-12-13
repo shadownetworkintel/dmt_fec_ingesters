@@ -10,7 +10,7 @@ class TestCandidatesIngester:
     """Test candidates ingester (no checkpoints, uses last_run only)."""
     
     @patch('ingesters.api_candidates_ingester.send_slack_alert')
-    @patch('ingesters.api_candidates_ingester.execute_batch')
+    @patch('ingesters.api_candidates_ingester.execute_batch_with_retry')
     @patch('ingesters.api_candidates_ingester.db_cursor')
     @patch('ingesters.api_candidates_ingester.fetch_with_retries')
     @patch('ingesters.api_candidates_ingester.update_last_run')
@@ -72,8 +72,8 @@ class TestCandidatesIngester:
         # Verify database insert
         mock_execute_batch.assert_called_once()
         insert_call = mock_execute_batch.call_args
-        sql_query = insert_call[0][1]  # SQL query
-        data_rows = insert_call[0][2]  # Data rows
+        sql_query = insert_call[0][1]  # SQL query (second arg)
+        data_rows = insert_call[0][2]  # Data rows (third arg)
         
         assert 'INSERT INTO candidates' in sql_query
         assert 'ON CONFLICT (candidate_id) DO UPDATE SET' in sql_query
@@ -86,7 +86,7 @@ class TestCandidatesIngester:
         mock_slack.assert_not_called()
 
     @patch('ingesters.api_candidates_ingester.send_slack_alert')
-    @patch('ingesters.api_candidates_ingester.execute_batch')
+    @patch('ingesters.api_candidates_ingester.execute_batch_with_retry')
     @patch('ingesters.api_candidates_ingester.db_cursor')
     @patch('ingesters.api_candidates_ingester.fetch_with_retries')
     @patch('ingesters.api_candidates_ingester.update_last_run')
@@ -130,7 +130,7 @@ class TestCandidatesIngester:
         assert "API Error" in alert_call
 
     @patch('ingesters.api_candidates_ingester.send_slack_alert')
-    @patch('ingesters.api_candidates_ingester.execute_batch')
+    @patch('ingesters.api_candidates_ingester.execute_batch_with_retry')
     @patch('ingesters.api_candidates_ingester.db_cursor')
     @patch('ingesters.api_candidates_ingester.fetch_with_retries')
     @patch('ingesters.api_candidates_ingester.get_last_run')
@@ -157,7 +157,7 @@ class TestCommitteesIngester:
     """Test committees ingester (no checkpoints, uses last_run only)."""
     
     @patch('ingesters.api_committees_ingester.send_slack_alert')
-    @patch('ingesters.api_committees_ingester.execute_batch')
+    @patch('ingesters.api_committees_ingester.execute_batch_with_retry')
     @patch('ingesters.api_committees_ingester.db_cursor')
     @patch('ingesters.api_committees_ingester.fetch_with_retries')
     @patch('ingesters.api_committees_ingester.update_last_run')
@@ -203,7 +203,7 @@ class TestCommitteesIngester:
         mock_update_last_run.assert_called_once_with("committees")
 
     @patch('ingesters.api_committees_ingester.send_slack_alert')
-    @patch('ingesters.api_committees_ingester.execute_batch')
+    @patch('ingesters.api_committees_ingester.execute_batch_with_retry')
     @patch('ingesters.api_committees_ingester.db_cursor')
     @patch('ingesters.api_committees_ingester.fetch_with_retries')
     @patch('ingesters.api_committees_ingester.update_last_run')
@@ -242,7 +242,7 @@ class TestScheduleAIngester:
     """Test Schedule A ingester (uses checkpoints and targets)."""
     
     @patch('ingesters.api_schedule_a_ingester.send_slack_alert')
-    @patch('ingesters.api_schedule_a_ingester.execute_batch')
+    @patch('ingesters.api_schedule_a_ingester.execute_batch_with_retry')
     @patch('ingesters.api_schedule_a_ingester.db_cursor')
     @patch('ingesters.api_schedule_a_ingester.fetch_with_retries')
     @patch('ingesters.api_schedule_a_ingester.clear_checkpoint')
@@ -297,7 +297,7 @@ class TestScheduleAIngester:
         mock_execute_batch.assert_called_once()
 
     @patch('ingesters.api_schedule_a_ingester.send_slack_alert')
-    @patch('ingesters.api_schedule_a_ingester.execute_batch')
+    @patch('ingesters.api_schedule_a_ingester.execute_batch_with_retry')
     @patch('ingesters.api_schedule_a_ingester.db_cursor')
     @patch('ingesters.api_schedule_a_ingester.fetch_with_retries')
     @patch('ingesters.api_schedule_a_ingester.update_last_run')
@@ -364,7 +364,7 @@ class TestScheduleAIngester:
         mock_run.assert_called_once_with(resume_index='123', resume_date='2025-08-28')
 
     @patch('ingesters.api_schedule_a_ingester.send_slack_alert')
-    @patch('ingesters.api_schedule_a_ingester.execute_batch')
+    @patch('ingesters.api_schedule_a_ingester.execute_batch_with_retry')
     @patch('ingesters.api_schedule_a_ingester.db_cursor')
     @patch('ingesters.api_schedule_a_ingester.clear_checkpoint')  # Mock clear_checkpoint
     @patch('ingesters.api_schedule_a_ingester.get_checkpoint_started_at')
@@ -404,7 +404,7 @@ class TestScheduleBIngester:
     """Test Schedule B ingester (similar to Schedule A)."""
     
     @patch('ingesters.api_schedule_b_ingester.send_slack_alert')
-    @patch('ingesters.api_schedule_b_ingester.execute_batch')
+    @patch('ingesters.api_schedule_b_ingester.execute_batch_with_retry')
     @patch('ingesters.api_schedule_b_ingester.db_cursor')
     @patch('ingesters.api_schedule_b_ingester.fetch_with_retries')
     @patch('ingesters.api_schedule_b_ingester.clear_checkpoint')
@@ -452,7 +452,7 @@ class TestScheduleBIngester:
         assert params["per_page"] == 100
 
     @patch('ingesters.api_schedule_b_ingester.send_slack_alert')
-    @patch('ingesters.api_schedule_b_ingester.execute_batch')
+    @patch('ingesters.api_schedule_b_ingester.execute_batch_with_retry')
     @patch('ingesters.api_schedule_b_ingester.db_cursor')
     @patch('ingesters.api_schedule_b_ingester.fetch_with_retries')
     @patch('ingesters.api_schedule_b_ingester.clear_checkpoint')  # Mock clear_checkpoint
@@ -485,7 +485,7 @@ class TestScheduleEIngester:
     """Test Schedule E ingester."""
     
     @patch('ingesters.api_schedule_e_ingester.send_slack_alert')
-    @patch('ingesters.api_schedule_e_ingester.execute_batch')
+    @patch('ingesters.api_schedule_e_ingester.execute_batch_with_retry')
     @patch('ingesters.api_schedule_e_ingester.db_cursor')
     @patch('ingesters.api_schedule_e_ingester.fetch_with_retries')
     @patch('ingesters.api_schedule_e_ingester.clear_checkpoint')  # Mock clear_checkpoint
@@ -518,11 +518,11 @@ class TestScheduleEIngester:
         from ingesters.api_schedule_e_ingester import run
         run()
         
-        # Verify execute_batch was called
+        # Verify execute_batch_with_retry was called
         mock_execute_batch.assert_called_once()
 
     @patch('ingesters.api_schedule_e_ingester.send_slack_alert')
-    @patch('ingesters.api_schedule_e_ingester.execute_batch')
+    @patch('ingesters.api_schedule_e_ingester.execute_batch_with_retry')
     @patch('ingesters.api_schedule_e_ingester.db_cursor')
     @patch('ingesters.api_schedule_e_ingester.fetch_with_retries')
     @patch('ingesters.api_schedule_e_ingester.clear_checkpoint')  # Mock clear_checkpoint
@@ -586,10 +586,10 @@ class TestIngesterErrorHandling:
         with pytest.raises(Exception):
             run()
         
-        # Verify error alert includes params
+        # Verify error alert is formatted and includes the error text
         alert_message = mock_slack.call_args[0][0]
         assert "❌ *Schedule A Ingester FAILED*" in alert_message
-        assert "two_year_transaction_period" in alert_message
+        assert "Database connection failed" in alert_message
 
 class TestIngesterIntegration:
     """Integration tests for ingester workflows."""
@@ -598,7 +598,7 @@ class TestIngesterIntegration:
         """Test that candidates ingester sleeps after getting results from a page."""
         with patch('ingesters.api_candidates_ingester.fetch_with_retries') as mock_fetch, \
              patch('ingesters.api_candidates_ingester.get_last_run') as mock_last_run, \
-             patch('ingesters.api_candidates_ingester.execute_batch') as mock_execute_batch, \
+               patch('ingesters.api_candidates_ingester.execute_batch_with_retry') as mock_execute_batch, \
              patch('ingesters.api_candidates_ingester.db_cursor') as mock_db_cursor, \
              patch('ingesters.api_candidates_ingester.update_last_run') as mock_update_last_run, \
              patch('ingesters.api_candidates_ingester.time.sleep') as mock_sleep:
@@ -623,7 +623,7 @@ class TestIngesterIntegration:
         """Test that ingesters properly format API parameters."""
         with patch('ingesters.api_candidates_ingester.fetch_with_retries') as mock_fetch, \
              patch('ingesters.api_candidates_ingester.get_last_run') as mock_last_run, \
-             patch('ingesters.api_candidates_ingester.execute_batch') as mock_execute_batch, \
+               patch('ingesters.api_candidates_ingester.execute_batch_with_retry') as mock_execute_batch, \
              patch('ingesters.api_candidates_ingester.db_cursor') as mock_db_cursor, \
              patch('ingesters.api_candidates_ingester.update_last_run') as mock_update_last_run:
             
@@ -645,7 +645,7 @@ class TestIngesterIntegration:
 class TestIngesterDataValidation:
     """Test data validation and transformation in ingesters."""
     
-    @patch('ingesters.api_committees_ingester.execute_batch')
+    @patch('ingesters.api_committees_ingester.execute_batch_with_retry')
     @patch('ingesters.api_committees_ingester.db_cursor')
     @patch('ingesters.api_committees_ingester.fetch_with_retries')
     @patch('ingesters.api_committees_ingester.get_last_run')
