@@ -2,7 +2,6 @@ name: Run ingesters (scheduled)
 
 on:
   schedule:
-    # Daily at 2:30am Louisville (EST) = 07:30 UTC
     - cron: "30 7 * * *"
   workflow_dispatch: {}
 
@@ -10,16 +9,20 @@ jobs:
   run:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-
       - name: Setup flyctl
         uses: superfly/flyctl-actions/setup-flyctl@master
 
-      - name: Run ingesters as a one-off machine
+      - name: Install jq
+        run: sudo apt-get update && sudo apt-get install -y jq
+
+      - name: Run ingesters using latest deployed image
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
         run: |
-          flyctl machine run . \
+          set -euo pipefail
+          IMAGE=$(flyctl status --app dmt-fec-ingesters --json | jq -r '.Image')
+          echo "Using image: $IMAGE"
+          flyctl machine run "$IMAGE" \
             --app dmt-fec-ingesters \
             --region iad \
             --cpus 1 \
