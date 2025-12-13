@@ -2,7 +2,6 @@ name: Run ingesters (scheduled)
 
 on:
   schedule:
-    # Daily at 2:30am Louisville (EST) = 07:30 UTC
     - cron: "30 7 * * *"
   workflow_dispatch: {}
 
@@ -13,7 +12,7 @@ jobs:
       - name: Setup flyctl
         uses: superfly/flyctl-actions/setup-flyctl@master
 
-      - name: Run ingesters using latest deployed Fly image (no build)
+      - name: Run ingesters using latest release image (no build)
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
         run: |
@@ -21,23 +20,19 @@ jobs:
 
           APP="dmt-fec-ingesters"
 
-          echo "Fetching deployed image tag from flyctl status for app: $APP"
-          STATUS_OUT="$(flyctl status -a "$APP")"
+          echo "Determining latest release image for app: $APP"
 
-          # Extract value after "Image    ="
-          IMAGE_RAW="$(printf "%s\n" "$STATUS_OUT" | awk -F'= ' '/^[[:space:]]*Image[[:space:]]*=/ {print $2; exit}')"
-          IMAGE_TAG="$(echo "$IMAGE_RAW" | xargs)"  # trim whitespace
+          # releases output contains a column like:
+          # IMAGE: dmt-fec-ingesters:deployment-XXXXXXXX
+          # We'll grab the first IMAGE line (most recent release).
+          IMAGE_TAG="$(flyctl releases -a "$APP" | awk -F'IMAGE: ' 'NF>1 {print $2; exit}' | xargs)"
 
           if [ -z "$IMAGE_TAG" ]; then
-            echo "ERROR: Could not determine deployed image tag from flyctl status output."
-            echo "---- flyctl status output ----"
-            printf "%s\n" "$STATUS_OUT"
-            echo "-----------------------------"
+            echo "ERROR: Could not determine image tag from flyctl releases output."
+            flyctl releases -a "$APP" || true
             exit 1
           fi
 
-          # Fly stores deployed images in registry.fly.io
-          # Convert "dmt-fec-ingesters:deployment-XYZ" -> "registry.fly.io/dmt-fec-ingesters:deployment-XYZ"
           IMAGE="registry.fly.io/${IMAGE_TAG}"
 
           echo "Using image: $IMAGE"
