@@ -1,0 +1,38 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:16
+    container_name: fec_db
+    environment:
+      POSTGRES_DB: ${DB_NAME:-campaign_finance}
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  ingester:
+    build: .
+    container_name: fec_ingester
+    depends_on:
+      - db
+    environment:
+      # Point core.database at the db service
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-campaign_finance}
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+
+      # App-level configuration
+      ENV_MODE: prod
+      FEC_API_KEY: ${FEC_API_KEY:-changeme}
+      SLACK_WEBHOOK_URL: ${SLACK_WEBHOOK_URL:-}
+
+    # Run once; comment restart out if you want retries
+    restart: "no"
+
+volumes:
+  pgdata:
