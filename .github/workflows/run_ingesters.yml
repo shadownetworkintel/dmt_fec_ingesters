@@ -5,6 +5,10 @@ on:
     - cron: "30 7 * * *"
   workflow_dispatch: {}
 
+concurrency:
+  group: dmt-fec-ingesters
+  cancel-in-progress: true
+
 jobs:
   run:
     runs-on: ubuntu-latest
@@ -12,28 +16,14 @@ jobs:
       - name: Setup flyctl
         uses: superfly/flyctl-actions/setup-flyctl@master
 
-      - name: Run ingesters using latest release image (no build)
+      - name: Run ingesters using latest image (no build)
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
         run: |
           set -euo pipefail
 
           APP="dmt-fec-ingesters"
-
-          echo "Determining latest release image for app: $APP"
-
-          # releases output contains a column like:
-          # IMAGE: dmt-fec-ingesters:deployment-XXXXXXXX
-          # We'll grab the first IMAGE line (most recent release).
-          IMAGE_TAG="$(flyctl releases -a "$APP" | awk -F'IMAGE: ' 'NF>1 {print $2; exit}' | xargs)"
-
-          if [ -z "$IMAGE_TAG" ]; then
-            echo "ERROR: Could not determine image tag from flyctl releases output."
-            flyctl releases -a "$APP" || true
-            exit 1
-          fi
-
-          IMAGE="registry.fly.io/${IMAGE_TAG}"
+          IMAGE="registry.fly.io/${APP}:latest"
 
           echo "Using image: $IMAGE"
 
