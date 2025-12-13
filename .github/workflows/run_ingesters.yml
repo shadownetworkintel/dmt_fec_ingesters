@@ -23,14 +23,18 @@ jobs:
 
           echo "Fetching deployed image from flyctl status for app: $APP"
 
-          IMAGE_RAW="$(flyctl status -a "$APP" | awk -F'= ' '/^[[:space:]]*Image[[:space:]]*=/ {print $2; exit}')"
+          # Capture output first (avoids SIGPIPE/pipefail issues)
+          STATUS_OUT="$(flyctl status -a "$APP")"
 
-          # Trim leading/trailing whitespace/newlines
-          IMAGE="$(echo "$IMAGE_RAW" | xargs)"
+          # Extract the value after "Image    ="
+          IMAGE_RAW="$(printf "%s\n" "$STATUS_OUT" | awk -F'= ' '/^[[:space:]]*Image[[:space:]]*=/ {print $2; exit}')"
+          IMAGE="$(echo "$IMAGE_RAW" | xargs)"  # trim whitespace
 
           if [ -z "$IMAGE" ]; then
             echo "ERROR: Could not determine deployed image from flyctl status output."
-            flyctl status -a "$APP" || true
+            echo "---- flyctl status output ----"
+            printf "%s\n" "$STATUS_OUT"
+            echo "-----------------------------"
             exit 1
           fi
 
