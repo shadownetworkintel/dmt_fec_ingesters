@@ -1,0 +1,32 @@
+# Fly.io configuration for the FEC ingesters worker
+# NOTE: Update the `app` name below to match your Fly app if it already exists.
+
+app = "dmt-fec-ingesters"
+primary_region = "iad"  # Change to your preferred region
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  # App runs in production mode inside the container
+  ENV_MODE = "prod"
+  PYTHONUNBUFFERED = "1"
+  PYTHONDONTWRITEBYTECODE = "1"
+
+  # DB_* and sensitive values (FEC_API_KEY, SLACK_WEBHOOK_URL, etc.)
+  # should be provided via `fly secrets set` and are not hardcoded here.
+
+[deploy]
+  strategy = "rolling"
+
+# This app runs as a worker (no public HTTP service).
+# If you later expose an HTTP API, add a [[services]] block.
+
+[experimental]
+  auto_rollback = true
+
+# Basic VM sizing — adjust as needed
+[[vm]]
+  cpu_kind = "shared"
+  cpus = 1
+  memory = "1024mb"
