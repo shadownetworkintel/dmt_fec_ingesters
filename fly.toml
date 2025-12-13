@@ -16,9 +16,6 @@ primary_region = "iad"  # Change to your preferred region
   # DB_* and sensitive values (FEC_API_KEY, SLACK_WEBHOOK_URL, etc.)
   # should be provided via `fly secrets set` and are not hardcoded here.
 
-[deploy]
-  strategy = "rolling"
-
 # This app runs as a worker (no public HTTP service).
 # If you later expose an HTTP API, add a [[services]] block.
 
