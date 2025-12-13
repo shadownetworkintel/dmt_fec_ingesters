@@ -187,12 +187,10 @@ def run(committee_id=None, resume_index=None, resume_date=None):
         logger.error(
             f"Schedule A ingester encountered an error\n"
             f"   - Error: {str(e)}\n"
-            f"   - Params: {json.dumps(params, indent=2)}"
         )
         send_slack_alert(
             f"❌ *Schedule A Ingester FAILED*\n"
             f"> Error: `{str(e)}`\n"
-            f"> Params: ```{json.dumps(params, indent=2)}```"
         )
         raise
     finally:

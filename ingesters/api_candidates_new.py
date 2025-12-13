@@ -114,12 +114,10 @@ def _run_all_candidates():
         logger.error(
             f"Candidates ingester (ALL) encountered an error\n"
             f"   - Error: {str(e)}\n"
-            f"   - Params: {json.dumps(params, indent=2)}"
         )
         send_slack_alert(
             f"❌ *Candidates Ingester (ALL) FAILED*\n"
             f"> Error: `{str(e)}`\n"
-            f"> Params: ```{json.dumps(params, indent=2)}```"
         )
         raise
 
@@ -151,13 +149,11 @@ def _run_for_candidate(candidate_id: str):
             f"Candidates ingester encountered an error for candidate {candidate_id}\n"
             f"   - Error: {str(e)}\n"
             f"   - URL: {url}\n"
-            f"   - Params: {json.dumps(params, indent=2)}"
         )
         send_slack_alert(
             f"❌ *Candidates Ingester FAILED for candidate {candidate_id}*\n"
             f"> Error: `{str(e)}`\n"
             f"> URL: `{url}`\n"
-            f"> Params: ```{json.dumps(params, indent=2)}```"
         )
         raise
 
