@@ -89,3 +89,14 @@ jobs:
           flyctl machine destroy "$MACHINE_ID" -a "$APP" || true
 
           echo "Done."
+          
+      - name: Notify Slack on workflow failure
+        if: failure()
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          RUN_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+          curl -X POST -H 'Content-type: application/json' \
+            --data "{\"text\":\":rotating_light: *${{ github.workflow }}* failed for *${{ github.repository }}* on *${{ github.ref_name }}*\\nRun: ${RUN_URL}\"}" \
+            "$SLACK_WEBHOOK_URL"
