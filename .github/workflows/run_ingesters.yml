@@ -1,0 +1,21 @@
+name: Run ingesters (scheduled)
+
+on:
+  schedule:
+    - cron: "15 7 * * *"   # daily at 07:15 UTC (02:15 Louisville in winter)
+  workflow_dispatch: {}
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up flyctl
+        uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Run ingesters as a one-off machine
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+          fly -a dmt-fec-ingesters machine run . \
+            --rm \
+            --command "/app/docker-entrypoint.sh"
