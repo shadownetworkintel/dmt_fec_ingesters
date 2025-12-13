@@ -114,12 +114,10 @@ def run(committee_id=None):
         logger.error(
             f"Totals ingester encountered an error\n"
             f"   - Error: {str(e)}\n"
-            f"   - Params: {json.dumps(params, indent=2)}"
         )
         send_slack_alert(
             f"❌ *Totals Ingester FAILED*\n"
             f"> Error: `{str(e)}`\n"
-            f"> Params: ```{json.dumps(params, indent=2)}```"
         )
         raise
 

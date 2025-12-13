@@ -126,12 +126,10 @@ def _run_all_committees():
         logger.error(
             f"Committees ingester (ALL) encountered an error\n"
             f"   - Error: {str(e)}\n"
-            f"   - Params: {json.dumps(params, indent=2)}"
         )
         send_slack_alert(
             f"❌ *Committees Ingester (ALL) FAILED*\n"
             f"> Error: `{str(e)}`\n"
-            f"> Params: ```{json.dumps(params, indent=2)}```"
         )
         raise
 
@@ -163,13 +161,11 @@ def _run_for_committee(committee_id: str):
             f"Committees ingester encountered an error for committee {committee_id}\n"
             f"   - Error: {str(e)}\n"
             f"   - URL: {url}\n"
-            f"   - Params: {json.dumps(params, indent=2)}"
         )
         send_slack_alert(
             f"❌ *Committees Ingester FAILED for committee {committee_id}*\n"
             f"> Error: `{str(e)}`\n"
             f"> URL: `{url}`\n"
-            f"> Params: ```{json.dumps(params, indent=2)}```"
         )
         raise
 
