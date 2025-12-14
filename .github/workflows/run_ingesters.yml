@@ -15,12 +15,6 @@ jobs:
     steps:
       - name: Setup flyctl
         uses: superfly/flyctl-actions/setup-flyctl@master
-        
-      - name: (Test) Force failure
-        if: github.event_name == 'workflow_dispatch'
-        run: |
-          echo "Forcing a failure to test Slack notifications."
-          exit 1
 
       - name: Run ingesters (single-run, wait, cleanup)
         env:
