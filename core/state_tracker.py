@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 def get_last_run(name: str, target: str = "all") -> Optional[str]:
     logger.info(f"Getting last run for: {name}, target: {target}")
     with db_cursor() as cur:
-        cur.execute("select last_run from ops.ingest_state where name=%s and target=%s", (name, target))
+        cur.execute("select last_run from ingest.ingest_state where name=%s and target=%s", (name, target))
         row = cur.fetchone()
         result = row[0].isoformat() if row and row[0] else None
         logger.info(f"Last run for {name}/{target}: {result}")
@@ -19,7 +19,7 @@ def update_last_run(name: str, dt: Optional[datetime] = None, target: str = "all
     logger.info(f"Updating last run for: {name}, target: {target}, dt: {dt}")
     with db_cursor() as cur:
         cur.execute("""
-            insert into ops.ingest_state(name, target, last_run, updated_at)
+            insert into ingest.ingest_state(name, target, last_run, updated_at)
             values (%s, %s, COALESCE(%s, now()), now())
             on conflict (name, target) do update
               set last_run = EXCLUDED.last_run,
@@ -30,7 +30,7 @@ def update_last_run(name: str, dt: Optional[datetime] = None, target: str = "all
 def get_checkpoint(name: str, target: str = "all") -> Optional[Dict[str, Any]]:
     logger.info(f"Getting checkpoint for: {name}, target: {target}")
     with db_cursor() as cur:
-        cur.execute("select data from ops.ingest_checkpoints where name=%s and target=%s", (name, target))
+        cur.execute("select data from ingest.ingest_checkpoints where name=%s and target=%s", (name, target))
         row = cur.fetchone()
         result = row[0] if row else None
         logger.info(f"Checkpoint for {name}/{target}: {result}")
@@ -45,7 +45,7 @@ def update_checkpoint(name: str, checkpoint_data: Dict[str, Any], target: str = 
     logger.info(f"Updating checkpoint for: {name}, target: {target}, data: {checkpoint_data}")
     with db_cursor() as cur:
         cur.execute("""
-            insert into ops.ingest_checkpoints(name, target, data, updated_at)
+            insert into ingest.ingest_checkpoints(name, target, data, updated_at)
             values (%s, %s, %s, now())
             on conflict (name, target) do update
               set data = EXCLUDED.data,
@@ -56,7 +56,7 @@ def update_checkpoint(name: str, checkpoint_data: Dict[str, Any], target: str = 
 def clear_checkpoint(name: str, target: str = "all") -> None:
     logger.info(f"Clearing checkpoint for: {name}, target: {target}")
     with db_cursor() as cur:
-        cur.execute("delete from ops.ingest_checkpoints where name=%s and target=%s", (name, target))
+        cur.execute("delete from ingest.ingest_checkpoints where name=%s and target=%s", (name, target))
         rows_deleted = cur.rowcount
         logger.info(f"Cleared checkpoint for {name}/{target}, rows deleted: {rows_deleted}")
 
@@ -76,7 +76,7 @@ def get_committee_last_run(schedule_name: str, committee_id: str) -> Optional[st
     with db_cursor() as cur:
         cur.execute("""
             select last_run
-              from ops.committee_run_state
+                            from ingest.committee_run_state
              where schedule_name=%s and committee_id=%s
         """, (schedule_name, committee_id))
         row = cur.fetchone()
@@ -88,7 +88,7 @@ def update_committee_last_run(schedule_name: str, committee_id: str, dt: Optiona
     logger.info(f"Updating committee last run for: {schedule_name}, {committee_id}, dt: {dt}")
     with db_cursor() as cur:
         cur.execute("""
-            insert into ops.committee_run_state(schedule_name, committee_id, last_run, updated_at)
+            insert into ingest.committee_run_state(schedule_name, committee_id, last_run, updated_at)
             values (%s, %s, COALESCE(%s, now()), now())
             on conflict (schedule_name, committee_id) do update
               set last_run = EXCLUDED.last_run,
