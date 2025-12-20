@@ -14,8 +14,11 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-# Import your models' Base
-from database.models import Base
+# Import shared Base, and ensure model modules are imported
+# so their tables are registered on Base.metadata.
+from database.base import Base
+import database.public_schema  # noqa: F401
+import database.ingest_schema  # noqa: F401
 
 target_metadata = Base.metadata
 
@@ -36,7 +39,7 @@ config.set_main_option("sqlalchemy.url", get_url())
 
 
 def include_object(obj, name, type_, reflected, compare_to):
-    """Only include objects in the 'public' schema (or default None)."""
+    """Only include objects in the 'public' or 'ingest' schema (or default None)."""
     # Skip ORM-mapped views
     if type_ == "table":
         info = getattr(obj, "info", {}) or {}
@@ -44,18 +47,18 @@ def include_object(obj, name, type_, reflected, compare_to):
             return False
 
     if type_ == "schema":
-        return name == "public"
+        return name in ("public", "ingest")
 
     if type_ in ("table", "index"):
         schema = getattr(obj, "schema", None)
-        if schema not in (None, "public"):
+        if schema not in (None, "public", "ingest"):
             return False
 
     # For constraints etc., rely on parent table
     table = getattr(obj, "table", None)
     if table is not None:
         schema = getattr(table, "schema", None)
-        if schema not in (None, "public"):
+        if schema not in (None, "public", "ingest"):
             return False
 
     return True
