@@ -47,7 +47,7 @@ Focus on preserving existing patterns for database access, state tracking, and i
   - `get_last_run(name, target="all"|id)` / `update_last_run(name, dt?, target)`.
   - `get_checkpoint`, `update_checkpoint`, `clear_checkpoint`, `get_checkpoint_started_at` for long-running paginated jobs.
 - Schedule A demonstrates the full checkpoint pattern in `ingesters/api_schedule_a_ingester.py`:
-  - Uses `ops.ingest_state` + `ops.ingest_checkpoints` with `target` = `"all"` or committee ID.
+  - Uses `ingest.ingest_state` + `ingest.ingest_checkpoints` with `target` = `"all"` or committee ID.
   - Includes CLI resume (`--resume-index`, `--resume-date`) and auto-resume from DB checkpoints.
 - When adding new long-running or paginated ingesters, follow the Schedule A pattern for:
   - `last_run` handling, `DAYS_BACK` windows, and `target`-scoped state.
