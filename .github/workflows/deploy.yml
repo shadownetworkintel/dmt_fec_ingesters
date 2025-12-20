@@ -18,7 +18,7 @@ jobs:
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
         run: |
-          flyctl deploy --app dmt-fec-ingesters --image-label latest --build-only
+          flyctl deploy --app dmt-fec-ingesters --image-label latest
 
       - name: Notify Slack on workflow failure
         if: failure()
