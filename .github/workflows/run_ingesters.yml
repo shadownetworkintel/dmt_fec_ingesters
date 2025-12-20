@@ -67,6 +67,7 @@ jobs:
 
           echo "== Wait for machine to stop =="
           # Poll status until it is not 'started'
+          FINISHED="0"
           for i in $(seq 1 360); do
             STATE="$(flyctl machine status "$MACHINE_ID" -a "$APP" 2>/dev/null | awk -F': ' '/^State:/ {print $2; exit}' | xargs || true)"
             echo "[$i] State: ${STATE:-unknown}"
@@ -79,11 +80,19 @@ jobs:
 
             if [ "$STATE" != "started" ]; then
               echo "Machine finished with state: $STATE"
+              FINISHED="1"
               break
             fi
 
             sleep 10
           done
+
+          if [ "$FINISHED" != "1" ]; then
+            echo "ERROR: Timed out waiting for machine to stop. Fetching logs anyway."
+          fi
+
+          echo "== Machine logs (for Alembic + ingestion output) =="
+          flyctl machine logs "$MACHINE_ID" -a "$APP" || true
 
           echo "== Cleanup: destroy the machine =="
           flyctl machine destroy "$MACHINE_ID" -a "$APP" || true
