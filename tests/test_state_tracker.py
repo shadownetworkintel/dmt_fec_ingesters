@@ -25,7 +25,7 @@ class TestGetLastRun:
         
         assert result == "2025-08-28T15:30:00"
         mock_db_cursor.execute.assert_called_once_with(
-            "select last_run from ops.ingest_state where name=%s and target=%s",
+            "select last_run from ingest.ingest_state where name=%s and target=%s",
             ("schedule_a", "all")
         )
 
@@ -56,7 +56,7 @@ class TestGetLastRun:
         get_last_run("schedule_a")
         
         mock_db_cursor.execute.assert_called_once_with(
-            "select last_run from ops.ingest_state where name=%s and target=%s",
+            "select last_run from ingest.ingest_state where name=%s and target=%s",
             ("schedule_a", "all")
         )
 
@@ -71,7 +71,7 @@ class TestUpdateLastRun:
         
         mock_db_cursor.execute.assert_called_once()
         call_args = mock_db_cursor.execute.call_args
-        assert "insert into ops.ingest_state" in call_args[0][0]
+        assert "insert into ingest.ingest_state" in call_args[0][0]
         assert "on conflict (name, target) do update" in call_args[0][0]
         assert call_args[0][1] == ("schedule_a", "all", test_datetime)
 
@@ -105,7 +105,7 @@ class TestGetCheckpoint:
         
         assert result == checkpoint_data
         mock_db_cursor.execute.assert_called_once_with(
-            "select data from ops.ingest_checkpoints where name=%s and target=%s",
+            "select data from ingest.ingest_checkpoints where name=%s and target=%s",
             ("schedule_a", "all")
         )
 
@@ -126,7 +126,7 @@ class TestGetCheckpoint:
         get_checkpoint("schedule_a")
         
         mock_db_cursor.execute.assert_called_once_with(
-            "select data from ops.ingest_checkpoints where name=%s and target=%s",
+            "select data from ingest.ingest_checkpoints where name=%s and target=%s",
             ("schedule_a", "all")
         )
 
@@ -141,7 +141,7 @@ class TestUpdateCheckpoint:
         
         mock_db_cursor.execute.assert_called_once()
         call_args = mock_db_cursor.execute.call_args
-        assert "insert into ops.ingest_checkpoints" in call_args[0][0]
+        assert "insert into ingest.ingest_checkpoints" in call_args[0][0]
         assert "on conflict (name, target) do update" in call_args[0][0]
         # Check that the JSON data was passed correctly
         assert call_args[0][1][0] == "schedule_a"
@@ -181,7 +181,7 @@ class TestClearCheckpoint:
         clear_checkpoint("schedule_a", target="all")
         
         mock_db_cursor.execute.assert_called_once_with(
-            "delete from ops.ingest_checkpoints where name=%s and target=%s",
+            "delete from ingest.ingest_checkpoints where name=%s and target=%s",
             ("schedule_a", "all")
         )
 
@@ -200,7 +200,7 @@ class TestClearCheckpoint:
         clear_checkpoint("schedule_a")
         
         mock_db_cursor.execute.assert_called_once_with(
-            "delete from ops.ingest_checkpoints where name=%s and target=%s",
+            "delete from ingest.ingest_checkpoints where name=%s and target=%s",
             ("schedule_a", "all")
         )
 
@@ -286,7 +286,7 @@ class TestCommitteeSpecificFunctions:
         
         mock_db_cursor.execute.assert_called_once()
         call_args = mock_db_cursor.execute.call_args
-        assert "insert into ops.committee_run_state" in call_args[0][0]
+        assert "insert into ingest.committee_run_state" in call_args[0][0]
         assert "on conflict (schedule_name, committee_id) do update" in call_args[0][0]
         assert call_args[0][1] == ("schedule_a", "C00123456", test_datetime)
 
