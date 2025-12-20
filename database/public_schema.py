@@ -468,36 +468,6 @@ Index("idx_schedule_e_committee_id", ScheduleEExpenditure.committee_id)
 Index("idx_schedule_e_candidate_id", ScheduleEExpenditure.candidate_id)
 Index("idx_schedule_e_report_year", ScheduleEExpenditure.report_year)
 
-
-class VendorNameKeyword(Base):
-    __tablename__ = "vendor_name_keywords"
-
-    kw = Column(Text, primary_key=True)
-    category = Column(Text)
-
-
-class PurposeKeyword(Base):
-    __tablename__ = "purpose_keywords"
-
-    kw = Column(Text, primary_key=True)
-    category = Column(Text)
-
-
-class VendorCategoryManual(Base):
-    __tablename__ = "vendor_category_manual"
-
-    recipient_name = Column(Text, primary_key=True)
-    category = Column(Text, nullable=False)
-
-
-class VendorCategoryMap(Base):
-    __tablename__ = "vendor_category_map"
-    __table_args__ = {"info": {"is_view": True}}
-
-    recipient_name = Column(Text, primary_key=True)
-    category = Column(Text)
-
-
 class Totals(Base):
     __tablename__ = "totals"
 
