@@ -16,6 +16,7 @@ def _load_db_settings():
     db_user = os.getenv('DB_USER')
     db_password = os.getenv('DB_PASSWORD')
     db_port = os.getenv('DB_PORT', '5432')
+    db_sslmode = os.getenv('DB_SSLMODE', 'require')
 
     if not all([db_host, db_name, db_user, db_password]):
         raise ValueError(
@@ -30,6 +31,7 @@ def _load_db_settings():
         "user": db_user,
         "password": db_password,
         "port": db_port,
+        "sslmode": db_sslmode,
     }
 
 
@@ -40,7 +42,7 @@ def get_sqlalchemy_url() -> str:
     cfg = _load_db_settings()
     return (
         f"postgresql+psycopg2://{cfg['user']}:{cfg['password']}"
-        f"@{cfg['host']}:{cfg['port']}/{cfg['name']}"
+        f"@{cfg['host']}:{cfg['port']}/{cfg['name']}?sslmode={cfg['sslmode']}"
     )
 
 
@@ -58,7 +60,7 @@ def _get_dsn():
         f"dbname={cfg['name']} "
         f"user={cfg['user']} "
         f"password={cfg['password']} "
-        f"sslmode=require "
+        f"sslmode={cfg['sslmode']} "
         f"application_name=ingester "
         f"connect_timeout=10"
     )

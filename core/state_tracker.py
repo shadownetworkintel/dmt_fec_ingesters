@@ -69,29 +69,3 @@ def get_checkpoint_started_at(name: str, target: str = "all") -> Optional[dateti
         except (ValueError, TypeError) as e:
             logger.warning(f"Invalid started_at in checkpoint for {name}/{target}: {e}")
     return None
-
-# Keep the old committee-specific functions for backward compatibility
-def get_committee_last_run(schedule_name: str, committee_id: str) -> Optional[str]:
-    logger.info(f"Getting committee last run for: {schedule_name}, {committee_id}")
-    with db_cursor() as cur:
-        cur.execute("""
-            select last_run
-                            from ingest.committee_run_state
-             where schedule_name=%s and committee_id=%s
-        """, (schedule_name, committee_id))
-        row = cur.fetchone()
-        result = row[0].isoformat() if row and row[0] else None
-        logger.info(f"Committee last run for {schedule_name}/{committee_id}: {result}")
-        return result
-
-def update_committee_last_run(schedule_name: str, committee_id: str, dt: Optional[datetime] = None) -> None:
-    logger.info(f"Updating committee last run for: {schedule_name}, {committee_id}, dt: {dt}")
-    with db_cursor() as cur:
-        cur.execute("""
-            insert into ingest.committee_run_state(schedule_name, committee_id, last_run, updated_at)
-            values (%s, %s, COALESCE(%s, now()), now())
-            on conflict (schedule_name, committee_id) do update
-              set last_run = EXCLUDED.last_run,
-                  updated_at = now()
-        """, (schedule_name, committee_id, dt))
-        logger.info(f"Successfully updated committee last run for {schedule_name}/{committee_id}")
