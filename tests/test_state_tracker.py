@@ -8,9 +8,7 @@ from core.state_tracker import (
     get_checkpoint,
     update_checkpoint,
     clear_checkpoint,
-    get_checkpoint_started_at,
-    get_committee_last_run,
-    update_committee_last_run
+    get_checkpoint_started_at
 )
 
 class TestGetLastRun:
@@ -250,50 +248,3 @@ class TestGetCheckpointStartedAt:
         result = get_checkpoint_started_at("schedule_a", target="all")
         
         assert result is None
-
-class TestCommitteeSpecificFunctions:
-    
-    def test_get_committee_last_run_with_result(self, mock_db_cursor_state_tracker):
-        """Test getting committee last run when record exists."""
-        mock_db_cursor = mock_db_cursor_state_tracker
-        test_datetime = datetime(2025, 8, 28, 15, 30, 0)
-        mock_db_cursor.fetchone.return_value = (test_datetime,)
-        
-        result = get_committee_last_run("schedule_a", "C00123456")
-        
-        assert result == "2025-08-28T15:30:00"
-        # Use the more flexible assertion approach
-        mock_db_cursor.execute.assert_called_once()
-        call_args = mock_db_cursor.execute.call_args
-        assert "select last_run" in call_args[0][0]
-        assert call_args[0][1] == ("schedule_a", "C00123456")
-
-    def test_get_committee_last_run_no_result(self, mock_db_cursor_state_tracker):
-        mock_db_cursor = mock_db_cursor_state_tracker
-        """Test getting committee last run when no record exists."""
-        mock_db_cursor.fetchone.return_value = None
-        
-        result = get_committee_last_run("schedule_a", "C00123456")
-        
-        assert result is None
-
-    def test_update_committee_last_run_with_datetime(self, mock_db_cursor_state_tracker):
-        mock_db_cursor = mock_db_cursor_state_tracker
-        """Test updating committee last run with specific datetime."""
-        test_datetime = datetime(2025, 8, 28, 15, 30, 0)
-        
-        update_committee_last_run("schedule_a", "C00123456", dt=test_datetime)
-        
-        mock_db_cursor.execute.assert_called_once()
-        call_args = mock_db_cursor.execute.call_args
-        assert "insert into ingest.committee_run_state" in call_args[0][0]
-        assert "on conflict (schedule_name, committee_id) do update" in call_args[0][0]
-        assert call_args[0][1] == ("schedule_a", "C00123456", test_datetime)
-
-    def test_update_committee_last_run_without_datetime(self, mock_db_cursor_state_tracker):
-        mock_db_cursor = mock_db_cursor_state_tracker
-        """Test updating committee last run without specific datetime."""
-        update_committee_last_run("schedule_a", "C00123456")
-        
-        call_args = mock_db_cursor.execute.call_args
-        assert call_args[0][1] == ("schedule_a", "C00123456", None)

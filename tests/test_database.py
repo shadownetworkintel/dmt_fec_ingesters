@@ -115,6 +115,22 @@ class TestGetDsn:
         
         assert dsn == "cached_dsn_value"
 
+    @patch.dict('os.environ', {
+        'DB_HOST': 'localhost',
+        'DB_NAME': 'campaign_finance',
+        'DB_USER': 'testuser',
+        'DB_PASSWORD': 'testpass',
+        'DB_PORT': '5432',
+        'DB_SSLMODE': 'disable'
+    })
+    def test_get_dsn_respects_sslmode_env(self):
+        """Test DSN creation respects DB_SSLMODE."""
+        import core.database
+        core.database._DSN = None
+
+        dsn = _get_dsn()
+        assert "sslmode=disable" in dsn
+
 class TestConnect:
     
     @patch('core.database._get_dsn')
