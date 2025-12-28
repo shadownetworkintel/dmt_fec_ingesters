@@ -45,13 +45,3 @@ class IngestCheckpoints(Base):
     )
     data = Column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))
     updated_at = Column(TIMESTAMP(timezone=True), server_default=text("now()"))
-
-
-class CommitteeRunState(Base):
-    __tablename__ = "committee_run_state"
-    __table_args__ = ({"schema": "ingest"},)
-
-    schedule_name = Column(Text, primary_key=True, nullable=False)
-    committee_id = Column(Text, primary_key=True, nullable=False)
-    last_run = Column(TIMESTAMP(timezone=True))
-    updated_at = Column(TIMESTAMP(timezone=True), server_default=text("now()"))
