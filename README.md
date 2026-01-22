@@ -1,13 +1,15 @@
 # dmt_fec_ingesters
 
-Ingests Federal Election Commission (FEC) data from the OpenFEC API into PostgreSQL.
+Ingests **as-filed** Federal Election Commission (FEC) data from the OpenFEC API into PostgreSQL.
+
+This repository is part of the broader Shadow Network Intelligence / DarkMoneyTracker project, which focuses on reproducible campaign finance analysis and transparency using publicly available FEC data.  
+More context and published analyses: https://darkmoneytracker.com
 
 This repo is designed to run as:
 - a one-off container (local Docker) for manual runs, or
 - a scheduled, one-off Fly.io machine for daily ingestion.
 
 ## What it does
-
 - Fetches data from the OpenFEC API with retry/backoff handling.
 - Upserts into Postgres tables using batched inserts.
 - Tracks incremental progress using DB-backed state and checkpoints.
