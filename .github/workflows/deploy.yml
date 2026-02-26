@@ -57,7 +57,7 @@ jobs:
         run: |
           # Build and push the image tagged as ':latest' for the scheduled machine runs.
           # This intentionally does NOT start/replace any long-running machines.
-          flyctl deploy --app dmt-fec-ingesters --image-label latest --build-only
+          flyctl deploy --app dmt-fec-ingesters --image-label latest --build-only --push
 
 
       - name: Notify Slack on workflow failure
