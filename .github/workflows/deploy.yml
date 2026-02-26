@@ -5,6 +5,10 @@ on:
     branches: ["main"]
   workflow_dispatch: {}
 
+concurrency:
+  group: dmt-fec-ingesters-fly
+  cancel-in-progress: false
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -13,6 +17,39 @@ jobs:
 
       - name: Setup flyctl
         uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Kill any running ingester machine
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          if ! command -v jq >/dev/null 2>&1; then
+            echo "jq not found; installing..."
+            sudo apt-get update
+            sudo apt-get install -y jq
+          fi
+
+          APP="dmt-fec-ingesters"
+
+          echo "== Find any existing machines to destroy =="
+          IDS="$(flyctl machine list -a "$APP" --json | jq -r '.[].id')"
+
+          if [ -z "$IDS" ]; then
+            echo "No running machines found."
+            exit 0
+          fi
+
+          echo "Destroying machines:"
+          echo "$IDS"
+
+          # Destroy all machines to guarantee we never accumulate multiple machines.
+          # This intentionally does not start a replacement; the scheduled workflow will create a new machine.
+          while IFS= read -r id; do
+            [ -z "$id" ] && continue
+            echo "Destroying $id..."
+            flyctl machine destroy "$id" -a "$APP" --force || true
+          done <<< "$IDS"
 
       - name: Deploy
         env:

@@ -24,6 +24,6 @@ primary_region = "iad"  # Change to your preferred region
 
 # Basic VM sizing — adjust as needed
 [[vm]]
-  cpu_kind = "shared"
+  cpu_kind = "shared"                                                                                                                                                                                                                                                                                                                                                     
   cpus = 1
   memory = "256mb"

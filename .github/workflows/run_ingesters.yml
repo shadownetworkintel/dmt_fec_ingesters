@@ -6,7 +6,7 @@ on:
   workflow_dispatch: {}
 
 concurrency:
-  group: dmt-fec-ingesters-run
+  group: dmt-fec-ingesters-fly
   cancel-in-progress: false
 
 jobs:
@@ -22,6 +22,12 @@ jobs:
         run: |
           set -euo pipefail
 
+          if ! command -v jq >/dev/null 2>&1; then
+            echo "jq not found; installing..."
+            sudo apt-get update
+            sudo apt-get install -y jq
+          fi
+
           APP="dmt-fec-ingesters"
           REGION="iad"
           IMAGE="registry.fly.io/${APP}:latest"
@@ -29,12 +35,33 @@ jobs:
 
           echo "== Check for already-running ingester machine =="
 
-          RUNNING_ID="$(flyctl machine list -a "$APP" | tail -n +2 | awk '$3=="started" {print $1; exit}')"
+          # If ANY machine is already starting/started, do not create another one.
+          # This avoids overlap without killing runs during the scheduled job.
+          RUNNING_ID="$(flyctl machine list -a "$APP" --json | jq -r '.[] | select(.state=="started" or .state=="starting") | .id' | head -n 1)"
 
           if [ -n "$RUNNING_ID" ]; then
             echo "An ingester machine is already running (ID: $RUNNING_ID)."
             echo "Skipping this run to avoid overlap."
             exit 0
+          fi
+
+          echo "== Cleanup any leftover machines (none are running) =="
+          # If a previous run crashed before cleanup, we may have stopped machines left behind.
+          # To enforce the invariant of 'never more than one machine exists', destroy any leftovers
+          # before starting a fresh run.
+          LEFTOVER_IDS="$(flyctl machine list -a "$APP" --json | jq -r '.[].id')"
+
+          if [ -n "$LEFTOVER_IDS" ]; then
+            echo "Destroying leftover machines:"
+            echo "$LEFTOVER_IDS"
+
+            while IFS= read -r id; do
+              [ -z "$id" ] && continue
+              echo "Destroying $id..."
+              flyctl machine destroy "$id" -a "$APP" --force || true
+            done <<< "$LEFTOVER_IDS"
+          else
+            echo "No leftover machines found."
           fi
 
           echo "== Start a new one-off machine =="
@@ -47,23 +74,48 @@ jobs:
           flyctl machine run "$IMAGE" \
             --app "$APP" \
             --region "$REGION" \
-            --cpus 1 \
-            --memory 256 \
+            --vm-cpus 1 \
+            --vm-memory 256 \
             --name "$RUN_NAME" \
+            --restart no \
             --command "/app/docker-entrypoint.sh"
 
-          echo "== Find the newest machine (assumed to be this run) =="
-          # Grab the most recently created machine ID (top row after header)
-          # NOTE: This relies on flyctl listing newest first (it typically does).
-          MACHINE_ID="$(flyctl machine list -a "$APP" | tail -n +2 | head -n 1 | awk '{print $1}')"
+          echo "== Resolve machine id for this run name =="
+          MACHINE_ID=""
+          for i in $(seq 1 30); do
+            MACHINE_ID="$(flyctl machine list -a "$APP" --json | jq -r --arg name "$RUN_NAME" '.[] | select(.name==$name) | .id' | head -n 1)"
+            if [ -n "$MACHINE_ID" ] && [ "$MACHINE_ID" != "null" ]; then
+              break
+            fi
+            echo "[$i] Waiting for machine to appear..."
+            sleep 2
+          done
 
-          if [ -z "$MACHINE_ID" ]; then
+          if [ -z "$MACHINE_ID" ] || [ "$MACHINE_ID" = "null" ]; then
             echo "ERROR: Could not determine machine id after starting run."
             flyctl machine list -a "$APP" || true
             exit 1
           fi
 
           echo "Machine ID: $MACHINE_ID"
+
+          cleanup() {
+            if [ -z "${MACHINE_ID:-}" ] || [ "${MACHINE_ID:-}" = "null" ]; then
+              return 0
+            fi
+
+            echo "== Machine status (final) =="
+            flyctl machine status "$MACHINE_ID" -a "$APP" || true
+
+            echo "== Machine logs (final) =="
+            flyctl machine logs "$MACHINE_ID" -a "$APP" || true
+
+            echo "== Cleanup: destroy the machine =="
+            flyctl machine destroy "$MACHINE_ID" -a "$APP" || true
+          }
+
+          # Always collect logs + destroy the one-off machine, even if the script errors.
+          trap cleanup EXIT
 
           echo "== Wait for machine to stop =="
           # Poll status until it is not 'started'
@@ -90,12 +142,6 @@ jobs:
           if [ "$FINISHED" != "1" ]; then
             echo "ERROR: Timed out waiting for machine to stop. Fetching logs anyway."
           fi
-
-          echo "== Machine logs (for Alembic + ingestion output) =="
-          flyctl machine logs "$MACHINE_ID" -a "$APP" || true
-
-          echo "== Cleanup: destroy the machine =="
-          flyctl machine destroy "$MACHINE_ID" -a "$APP" || true
 
           echo "Done."
 

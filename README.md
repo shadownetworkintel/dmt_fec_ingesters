@@ -195,9 +195,12 @@ Some support resume CLI flags (see the module’s `main()`), e.g. resume index/d
 
 ## Deployment and scheduled runs (Fly.io + GitHub Actions)
 
-- `.github/workflows/deploy.yml` builds the Fly image on pushes to `main` (build-only).
+- `.github/workflows/deploy.yml` runs on pushes to `main` and:
+  - destroys any existing Fly machines (so old code stops and machines don't accumulate)
+  - builds/pushes the image (build-only; does not create a new machine)
 - `.github/workflows/run_ingesters.yml` runs on a daily cron schedule and:
   - starts a one-off Fly machine using the latest image
+  - skips creating a new machine if any machine is already starting/started
   - runs `/app/docker-entrypoint.sh` (migrations + ingestion)
   - streams logs
   - destroys the machine
